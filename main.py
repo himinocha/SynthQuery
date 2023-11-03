@@ -138,6 +138,16 @@ cli.add_command(create_db)
 cli.add_command(delete_db)
 cli.add_command(create_table)
 cli.add_command(insert_values)
+# shawn
+# take filepath from the local
+# cli.add_command(load_table)
+
+# mino
+# when creating tables, create subdir for each table
+# edit create_table / insert_values
+
+# To-do
+# cli.add_command(delete_table)
 
 if __name__ == '__main__':
     cli()
