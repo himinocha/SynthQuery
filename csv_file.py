@@ -9,7 +9,7 @@ import csv
 @click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
 @click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
 @click.option("--values", prompt="Enter the values as a JSON string", help="The values to insert", required=True)
-def insert_cvalues(db, table, values):
+def ins_cval(db, table, values):
     """
     Insert csv values into a table in the specified database
     # for csv: python main.py insert-values --db=test --table=t1 --values='{"column3": "value1-", "column4": "value20"}'
@@ -32,38 +32,39 @@ def insert_cvalues(db, table, values):
         click.echo("Invalid JSON string.")
         sys.exit(1)
 
-    # Temporary file to write updated CSV content
-    temp_table_path_csv = os.path.join(db_path, f"{table}_temp.csv")
-
-    with open(table_path_csv, 'r', newline='') as csvfile, \
-            open(temp_table_path_csv, 'w', newline='') as temp_csvfile:
-
+    # opening the the table file
+    with open(table_path_csv, 'r+', newline='') as csvfile:
+        # the reader will serve as a iterator and read one line at a time
         reader = csv.DictReader(csvfile)
         existing_fieldnames = reader.fieldnames or []
 
-        # Combine existing fieldnames with new keys from values_dict
-        all_fieldnames = sorted(
-            set(existing_fieldnames).union(values_dict.keys()))
+        # checking for new columns
+        new_columns = set(values_dict.keys()) - set(existing_fieldnames)
+        if not new_columns:
+            writer = csv.DictWriter(csvfile, fieldnames=existing_fieldnames)
+            writer.writerow(values_dict)
+        else:
+            # iterating over rows and process the data to add the na
+            csvfile.seek(0)
+            all_fieldnames = existing_fieldnames + list(new_columns)
 
-        writer = csv.DictWriter(temp_csvfile, fieldnames=all_fieldnames)
-        writer.writeheader()  # Write new header
+            temp_table_path_csv = os.path.join(db_path, f"{table}_temp.csv")
+            with open(temp_table_path_csv, 'w', newline='') as temp_csvfile:
+                writer = csv.DictWriter(
+                    temp_csvfile, fieldnames=all_fieldnames)
+                writer.writeheader()
 
-        # Write existing rows while keeping file not entirely in memory
-        for row in reader:
-            # Replace empty values with 'NA' for consistency
-            row_with_na = {k: (v if v.strip() != '' else 'NA')
-                           for k, v in row.items()}
-            writer.writerow(row_with_na)
+                for row in reader:
+                    # update new column with NA
+                    row.update(
+                        {new_column: 'NA' for new_column in new_columns})
+                    writer.writerow(row)
 
-        # Fill in missing data for the new row with 'NA'
-        new_row = {field: values_dict.get(field, 'NA')
-                   for field in all_fieldnames}
-        writer.writerow(new_row)
+                new_row = {
+                    **{field: 'NA' for field in existing_fieldnames}, **values_dict}
+                writer.writerow(new_row)
 
-    # Replace the old file with the updated temp file
-    os.replace(temp_table_path_csv, table_path_csv)
+            # Replace the old file with the updated temp file
+            os.replace(temp_table_path_csv, table_path_csv)
 
     click.echo("Values inserted successfully!")
-
-
-@click.commanda()

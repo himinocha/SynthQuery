@@ -5,6 +5,7 @@ import json
 import csv
 import csv_file as cf
 import json_file as jf
+import shutil
 
 
 @click.group()
@@ -14,23 +15,28 @@ def cli():
 
 @click.command()
 @click.option("--db", prompt="Enter name of the database", help="The name of the database", required=1)
-def create_db(db):
+def cre_db(db):
     """
     Create a database to the user's liking
     """
     if not os.path.isdir('database'):
         os.mkdir('database')
-    os.mkdir('database' + '/' + db)
+    else:
+        click.echo("Database already exist")
+        sys.exit(1)
+    path = os.path.join('database', db)
+    os.mkdir(path)
 
 
 @click.command()
 @click.option("--db", prompt="Enter name of the database", help="The name of the database", required=1)
-def delete_db(db):
+def del_db(db):
     """
-    Create a database to the user's liking
+    Delete a database to the user's liking
     """
-    if os.path.isdir('database/'+db):
-        os.rmdir('database/'+db)
+    path = os.path.join('database', db)
+    if os.path.isdir(path):
+        shutil.rmtree(path)
     else:
         click.echo("database not exist")
         sys.exit(0)
@@ -40,7 +46,7 @@ def delete_db(db):
 @click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
 @click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
 @click.option("--format", prompt="Enter the format of the table (csv/json)", type=click.Choice(['csv', 'json'], case_sensitive=False), required=True)
-def create_table(db, table, format):
+def cre_tb(db, table, format):
     """
     Create a table in the specified database
     """
@@ -58,11 +64,11 @@ def create_table(db, table, format):
         click.echo("Table already exists.")
 
 
-cli.add_command(create_db)
-cli.add_command(delete_db)
-cli.add_command(create_table)
-cli.add_command(cf.insert_cvalues)
-cli.add_command(jf.insert_jvalues)
+cli.add_command(cre_db)
+cli.add_command(del_db)
+cli.add_command(cre_tb)
+cli.add_command(cf.ins_cval)
+cli.add_command(jf.ins_jval)
 # shawn
 # take filepath from the local
 # cli.add_command(load_table)
