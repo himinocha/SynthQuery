@@ -42,7 +42,9 @@ def ins_cval(db, table, values):
         new_columns = set(values_dict.keys()) - set(existing_fieldnames)
         if not new_columns:
             writer = csv.DictWriter(csvfile, fieldnames=existing_fieldnames)
-            writer.writerow(values_dict)
+            new_row = {field: values_dict.get(
+                field, 'NA') for field in existing_fieldnames}
+            writer.writerow(new_row)
         else:
             # iterating over rows and process the data to add the na
             csvfile.seek(0)
