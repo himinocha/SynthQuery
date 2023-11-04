@@ -64,3 +64,6 @@ def insert_cvalues(db, table, values):
     os.replace(temp_table_path_csv, table_path_csv)
 
     click.echo("Values inserted successfully!")
+
+
+@click.commanda()
