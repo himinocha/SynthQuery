@@ -12,7 +12,7 @@ import csv
 def insert_jvalues(db, table, values):
     """
     Insert json values into a table in the specified database
-    # for json: python main.py insert-values --db=test --table=t1 --values='[{"column1": "value1", "column2": "value2"}]'
+    # for json: python main.py insert-jvalues --db=test --table=t1 --values='[{"column1": "value1", "column2": "value2"}]'
 
     """
     db_path = os.path.join('database', db)

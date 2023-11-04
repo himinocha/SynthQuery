@@ -12,7 +12,7 @@ import csv
 def insert_cvalues(db, table, values):
     """
     Insert csv values into a table in the specified database
-    # for csv: python main.py insert-values --db=test --table=t1 --values='{"column3": "value1-", "column4": "value20"}'
+    # for csv: python main.py insert-cvalues --db=test --table=t2 --values='{"column3": "value1-", "column4": "value20"}'
 
     """
     db_path = os.path.join('database', db)
@@ -64,6 +64,3 @@ def insert_cvalues(db, table, values):
     os.replace(temp_table_path_csv, table_path_csv)
 
     click.echo("Values inserted successfully!")
-
-
-@click.commanda()
