@@ -9,11 +9,11 @@ import csv
 @click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
 @click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
 @click.option("--values", prompt="Enter the values as a JSON string", help="The values to insert", required=True)
+
 def ins_cval(db, table, values):
     """
     Insert csv values into a table in the specified database
     # for csv: python main.py insert-values --db=test --table=t1 --values='{"column3": "value1-", "column4": "value20"}'
-
     """
     db_path = os.path.join('database', db)
     if not os.path.exists(db_path):

@@ -64,6 +64,7 @@ def cre_tb(db, table, format):
         click.echo("Table already exists.")
 
 
+
 cli.add_command(cre_db)
 cli.add_command(del_db)
 cli.add_command(cre_tb)
