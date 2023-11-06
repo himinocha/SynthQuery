@@ -8,7 +8,7 @@ import csv
 @click.command()
 @click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
 @click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
-@click.option("--values", prompt="Enter the values as a JSON string", help="The values to insert", required=True)
+@click.option("--values", prompt="Enter the values as a JSON string with []", help="The values to insert", required=True)
 
 def ins_jval(db, table, values):
     """

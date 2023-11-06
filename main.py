@@ -22,10 +22,11 @@ def cre_db(db):
     if not os.path.isdir('database'):
         os.mkdir('database')
     else:
-        click.echo("Database already exist")
-        sys.exit(1)
+        click.echo("dir database exists.")
+        
     path = os.path.join('database', db)
     os.mkdir(path)
+    click.echo(f"db '{db}' created successfully!")
 
 
 @click.command()
@@ -37,6 +38,7 @@ def del_db(db):
     path = os.path.join('database', db)
     if os.path.isdir(path):
         shutil.rmtree(path)
+        click.echo(f"db '{db}' deleted successfully!")
     else:
         click.echo("database not exist")
         sys.exit(0)
