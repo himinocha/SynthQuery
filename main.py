@@ -64,22 +64,14 @@ def cre_tb(db, table, format):
         click.echo("Table already exists.")
 
 
-
 cli.add_command(cre_db)
 cli.add_command(del_db)
 cli.add_command(cre_tb)
 cli.add_command(cf.ins_cval)
 cli.add_command(jf.ins_jval)
-# shawn
-# take filepath from the local
-# cli.add_command(load_table)
+cli.add_command(cf.del_rows)
+cli.add_command(cf.project_col)
 
-# mino
-# when creating tables, create subdir for each table
-# edit create_table / insert_values
-
-# To-do
-# cli.add_command(delete_table)
 
 if __name__ == '__main__':
     cli()
