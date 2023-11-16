@@ -29,6 +29,7 @@ def cre_db(db):
     click.echo(f"db '{db}' created successfully!")
 
 
+
 @click.command()
 @click.option("--db", prompt="Enter name of the database", help="The name of the database", required=1)
 def del_db(db):
@@ -38,7 +39,6 @@ def del_db(db):
     path = os.path.join('database', db)
     if os.path.isdir(path):
         shutil.rmtree(path)
-        click.echo(f"db '{db}' deleted successfully!")
     else:
         click.echo("database not exist")
         sys.exit(0)
@@ -72,16 +72,10 @@ cli.add_command(del_db)
 cli.add_command(cre_tb)
 cli.add_command(cf.ins_cval)
 cli.add_command(jf.ins_jval)
-# shawn
-# take filepath from the local
-# cli.add_command(load_table)
+cli.add_command(cf.del_rows)
+cli.add_command(cf.project_col)
 
-# mino
-# when creating tables, create subdir for each table
-# edit create_table / insert_values
 
-# To-do
-# cli.add_command(delete_table)
 
 if __name__ == '__main__':
     cli()

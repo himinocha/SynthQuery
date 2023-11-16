@@ -13,7 +13,8 @@ import csv
 def ins_cval(db, table, values):
     """
     Insert csv values into a table in the specified database
-    # for csv: python main.py insert-values --db=test --table=t1 --values='{"column1": "value1", "column2": "value2"}'
+    # for csv: python main.py insert-values --db=test --table=t1 --values='{"column3": "value1-", "column4": "value20"}'
+
     """
     db_path = os.path.join('database', db)
     if not os.path.exists(db_path):
@@ -70,3 +71,79 @@ def ins_cval(db, table, values):
             os.replace(temp_table_path_csv, table_path_csv)
 
     click.echo("Values inserted successfully!")
+
+
+@click.command()
+@click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
+@click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
+@click.option("--conditions", prompt="Enter the deletion conditions as a JSON string", help="The conditions for row deletion", required=True)
+def del_rows(db, table, conditions):
+    """
+    Delete rows from a CSV table in the specified database based on given conditions.
+    e.g. --conditions {"column1": "value1", "column2": "value2"}
+    """
+    db_path = os.path.join('database', db)
+    if not os.path.exists(db_path):
+        click.echo("Database does not exist.")
+        sys.exit(1)
+
+    table_path_csv = os.path.join(db_path, f"{table}.csv")
+    if not os.path.exists(table_path_csv):
+        click.echo("Table does not exist.")
+        sys.exit(1)
+
+    try:
+        conditions_dict = json.loads(conditions)
+    except json.JSONDecodeError:
+        click.echo("Invalid JSON string.")
+        sys.exit(1)
+
+    temp_table_path_csv = os.path.join(db_path, f"{table}_temp.csv")
+    with open(table_path_csv, 'r', newline='') as csvfile, open(temp_table_path_csv, 'w', newline='') as temp_csvfile:
+        reader = csv.DictReader(csvfile)
+        writer = csv.DictWriter(temp_csvfile, fieldnames=reader.fieldnames)
+        writer.writeheader()
+
+        for row in reader:
+            if not all(row[key] == value for key, value in conditions_dict.items()):
+                writer.writerow(row)
+
+    os.replace(temp_table_path_csv, table_path_csv)
+    click.echo("Rows deleted successfully.")
+
+
+@click.command()
+@click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
+@click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
+@click.option("--columns", prompt="Enter the columns to select as a comma-separated list (leave empty to select all)", default='', help="The columns to project", required=False)
+def project_col(db, table, columns):
+    """
+    Project specified columns from a CSV table in the specified database.
+    """
+    db_path = os.path.join('database', db)
+    if not os.path.exists(db_path):
+        click.echo("Database does not exist.")
+        sys.exit(1)
+
+    table_path_csv = os.path.join(db_path, f"{table}.csv")
+    if not os.path.exists(table_path_csv):
+        click.echo("Table does not exist.")
+        sys.exit(1)
+
+    with open(table_path_csv, 'r', newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+
+        selected_columns = [col.strip() for col in columns.split(
+            ',')] if columns else reader.fieldnames
+
+        if not all(col in reader.fieldnames for col in selected_columns):
+            click.echo(
+                "One or more selected columns do not exist in the table.")
+            sys.exit(1)
+
+        writer = csv.DictWriter(
+            sys.stdout, fieldnames=selected_columns, extrasaction='ignore')
+        writer.writeheader()
+
+        for row in reader:
+            writer.writerow(row)
