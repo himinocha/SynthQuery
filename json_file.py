@@ -130,6 +130,7 @@ def project_col_jval(db, table, columns):
                                 col_list.append({key: value})
                 print(col_list)
             except json.JSONDecodeError:
+
                 click.echo("Empty JSON file...")
 
 def update_record(data, record_id, new_values):
