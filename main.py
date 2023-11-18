@@ -68,13 +68,22 @@ def cre_tb(db, table, format):
 cli.add_command(cre_db)
 cli.add_command(del_db)
 cli.add_command(cre_tb)
+
 cli.add_command(cf.ins_cval)
 cli.add_command(jf.ins_jval)
 cli.add_command(cf.del_rows)
 cli.add_command(cf.project_col)
-cli.add_command(jf.del_fields)
-cli.add_command(jf.project_fields)
 cli.add_command(cf.filter_tb)
+
+
+cli.add_command(jf.del_rows_jval)
+cli.add_command(jf.project_col_jval)
+cli.add_command(jf.update_jval)
+cli.add_command(jf.filter_jval)
+cli.add_command(jf.order_jval)
+cli.add_command(jf.group_by_jval)
+cli.add_command(jf.join_jval)
+
 
 if __name__ == '__main__':
     cli()
