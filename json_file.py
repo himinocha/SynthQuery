@@ -51,12 +51,13 @@ def ins_jval(db, table, values):
     else:
         click.echo("Table does not exist.")
         sys.exit(1)
-    
+
+
 @click.command()
 @click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
 @click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
 @click.option("--conditions", prompt="Enter the deletion conditions as a JSON string", help="The conditions for row deletion", required=True)
-def del_rows(db, table, conditions):
+def del_fields(db, table, conditions):
     """
     Delete rows from a JSON table in the specified database based on given conditions.
     e.g. --conditions [{"column1": "value1", "column2": "value2"}] [{"column1": "value1"}]
@@ -81,7 +82,8 @@ def del_rows(db, table, conditions):
         data = json.load(jsonfile)
 
     # Filtering rows that do not meet the conditions
-    filtered_data = [row for row in data if not all(row.get(key) == value for key, value in conditions_dict.items())]
+    filtered_data = [row for row in data if not all(
+        row.get(key) == value for key, value in conditions_dict.items())]
 
     # Writing the updated data back to the JSON file
     with open(table_path_json, 'w') as jsonfile:
@@ -94,7 +96,7 @@ def del_rows(db, table, conditions):
 @click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
 @click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
 @click.option("--columns", prompt="Enter the columns to select as a comma-separated list (leave empty to select all)", default='', help="The columns to project", required=False)
-def project_col(db, table, columns):
+def project_fields(db, table, columns):
     """
     Project specified columns from a JSON table in the specified database.
     """
@@ -109,17 +111,17 @@ def project_col(db, table, columns):
         sys.exit(1)
 
     with open(table_path_json, 'r+') as jsonfile:
-            try:
-                data = json.load(jsonfile)
-                # Access all columns
-                col_list = []
-                for record in data:
-                    for key, value in record.items():
-                        if len(columns) == 0:
-                            print(data)
-                            break
-                        elif key in columns:
-                                col_list.append({key: value})
-                print(col_list)
-            except json.JSONDecodeError:
-                click.echo("Empty JSON file...")
+        try:
+            data = json.load(jsonfile)
+            # Access all columns
+            col_list = []
+            for record in data:
+                for key, value in record.items():
+                    if len(columns) == 0:
+                        print(data)
+                        break
+                    elif key in columns:
+                        col_list.append({key: value})
+            print(col_list)
+        except json.JSONDecodeError:
+            click.echo("Empty JSON file...")

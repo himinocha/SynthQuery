@@ -23,11 +23,10 @@ def cre_db(db):
         os.mkdir('database')
     else:
         click.echo("dir database exists.")
-        
+
     path = os.path.join('database', db)
     os.mkdir(path)
     click.echo(f"db '{db}' created successfully!")
-
 
 
 @click.command()
@@ -66,7 +65,6 @@ def cre_tb(db, table, format):
         click.echo("Table already exists.")
 
 
-
 cli.add_command(cre_db)
 cli.add_command(del_db)
 cli.add_command(cre_tb)
@@ -74,10 +72,9 @@ cli.add_command(cf.ins_cval)
 cli.add_command(jf.ins_jval)
 cli.add_command(cf.del_rows)
 cli.add_command(cf.project_col)
-cli.add_command(jf.del_rows)
-cli.add_command(jf.project_col)
-
-
+cli.add_command(jf.del_fields)
+cli.add_command(jf.project_fields)
+cli.add_command(cf.filter_tb)
 
 if __name__ == '__main__':
     cli()
