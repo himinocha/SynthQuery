@@ -74,8 +74,13 @@ cli.add_command(cf.ins_cval)
 cli.add_command(jf.ins_jval)
 cli.add_command(cf.del_rows)
 cli.add_command(cf.project_col)
-cli.add_command(jf.del_rows)
-cli.add_command(jf.project_col)
+cli.add_command(jf.del_rows_jval)
+cli.add_command(jf.project_col_jval)
+cli.add_command(jf.update_jval)
+cli.add_command(jf.filter_jval)
+cli.add_command(jf.order_jval)
+cli.add_command(jf.group_by_jval)
+cli.add_command(jf.join_jval)
 
 
 
