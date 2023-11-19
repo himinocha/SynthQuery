@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>SynthQuery Documentation</h1>
+    <p>Explore the functionality and features of SynthQuery with our comprehensive command guide.</p>
+
+    <section>
+        <h2>cre-db (Create)</h2>
+        <p><strong>cre-db</strong> is SynthQuery’s command for creating a database. Users are prompted to enter the name of the database they want to create. A message indicating success or error follows, depending on whether the database already exists.</p>
+        <img src="static/images/create-db.png" alt="cre-db Command Illustration" class="command-image">
+    </section>
+
+    <section>
+        <h2>cre-tb (Create)</h2>
+        <p><strong>cre-tb</strong> is SynthQuery’s command for creating a table. Users are prompted to enter the name of the database, the name of the table, and the format of the table (CSV or JSON). A success or error message appears based on the validity of the database and the existence of the table name.</p>
+        <img src="static/images/create-table csv.png" alt="cre-tb Command Illustration" class="command-image">
+    </section>
+
+    <section>
+        <h2>del-db (Delete)</h2>
+        <p><strong>del-db</strong> is the command to delete a database. Users enter the name of the database they want to delete. A success or failure message follows, depending on the database's existence.</p>
+        <img src="static/images/delete-db.png" alt="del-db Command Illustration" class="command-image">
+    </section>
+
+    <section>
+        <h2>del-rows (Delete)</h2>
+        <p><strong>del-rows</strong> is the command to delete rows from a table based on specified conditions. Users enter the name of their database and table, followed by deletion conditions as a JSON string. Validity checks are performed on the database and table names.</p>
+        <img src="static/images/del-rows.jpeg" alt="del-rows Command Illustration" class="command-image">
+    </section>
+
+    <section>
+        <h2>ins-cval (Insert)</h2>
+        <p><strong>ins-cval</strong> is the command used to insert CSV values into a specified database and table. Users enter the names of their desired database and table, followed by values as a JSON string. A success or error message appears based on the validity of the entered information.</p>
+        <img src="static/images/insert-to-csv.png" alt="ins-cval Command Illustration" class="command-image">
+    </section>
+
+    <section>
+        <h2>ins-jval (Insert)</h2>
+        <p><strong>ins-jval</strong> is the command used to insert JSON values. It follows the same steps as ins-cval, with the difference being that users are prompted to insert JSON string values within square brackets.</p>
+        <img src="static/images/insert-to-json.png" alt="ins-jval Command Illustration" class="command-image">
+    </section>
+
+    <section>
+        <h2>project-col (Projection)</h2>
+        <p><strong>project-col</strong> is the command used to select columns of a table. Users enter the names of their desired database and table, followed by the columns they want to select as a comma-separated list, or a blank input to select all columns.</p>
+        <img src="static/images/project-col.jpeg" alt="project-col Command Illustration" class="command-image">
+    </section>
+    <style>
+        .command-image {
+            width: 100%; /* Adjust as needed */
+            height: auto;
+            margin-top: 20px;
+        }
+    </style>
+    <!-- More content or sections as needed -->
+{% endblock %}
+
+
+
