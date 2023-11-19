@@ -234,11 +234,11 @@ def filter_tb(db, table, conditions):
                 writer.writerow(row)
 
 
-@click.command()
-@click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
-@click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
-@click.option("--conditions", prompt="Enter the udpate conditions as a JSON string", help="The conditions for row update", required=True)
-def order_tb(db, table, columns):
+# @click.command()
+# @click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
+# @click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
+# @click.option("--conditions", prompt="Enter the udpate conditions as a JSON string", help="The conditions for row update", required=True)
+# def order_tb(db, table, columns):
 
 # order
 # groupby
