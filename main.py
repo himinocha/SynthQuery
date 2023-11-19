@@ -1,8 +1,6 @@
 import click
 import os
 import sys
-import json
-import csv
 import csv_file as cf
 import json_file as jf
 import shutil
@@ -23,11 +21,10 @@ def cre_db(db):
         os.mkdir('database')
     else:
         click.echo("dir database exists.")
-        
+
     path = os.path.join('database', db)
     os.mkdir(path)
     click.echo(f"db '{db}' created successfully!")
-
 
 
 @click.command()
@@ -66,15 +63,26 @@ def cre_tb(db, table, format):
         click.echo("Table already exists.")
 
 
-
 cli.add_command(cre_db)
 cli.add_command(del_db)
 cli.add_command(cre_tb)
+
 cli.add_command(cf.ins_cval)
 cli.add_command(jf.ins_jval)
 cli.add_command(cf.del_rows)
 cli.add_command(cf.project_col)
+cli.add_command(cf.filter_tb)
+cli.add_command(cf.order_tb)
+cli.add_command(cf.groupby)
 
+cli.add_command(jf.del_rows_jval)
+cli.add_command(jf.project_col_jval)
+cli.add_command(jf.update_jval)
+cli.add_command(jf.filter_jval)
+cli.add_command(jf.order_jval)
+cli.add_command(jf.group_by_jval)
+cli.add_command(jf.join_jval)
+cli.add_command(jf.select_jval)
 
 
 if __name__ == '__main__':
