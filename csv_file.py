@@ -6,6 +6,7 @@ import csv
 import heapq
 import tempfile
 import itertools
+from collections import defaultdict
 
 
 @click.command()
@@ -256,6 +257,7 @@ ASCEDNING_OPTION = {
 def order_tb(db, table, column, ascending):
     """
     Order a CSV table by column using external sorting.
+    e.g. python3 main.py order-tb --db ev --table ev_data --column "2020 Census Tract" --ascending F
     """
     # checking validity of the database
     db_path = os.path.join('database', db)
@@ -342,5 +344,64 @@ def merge_chunks(chunk_files, output_file, column):
             os.remove(f.name)
 
 
-# groupby
+@click.command()
+@click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
+@click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
+@click.option("--column", prompt="Enter the column to group by", help="The column to group by", required=True)
+@click.option("--agg", prompt="Enter the aggregation for group by", help="The aggregation to group by", required=True)
+@click.option("--project", prompt="Enter the columns to aggregate as a comma-separated list (leave empty if aggregation is count)", default='', help="The columns to project", required=False)
+def groupby(db, table, column, agg, project):
+    '''
+    groupby a column with aggregation on certain column
+    mean, min, max, sum can only applied to numeric columns
+    '''
+    db_path = os.path.join('database', db)
+    table_path_csv = os.path.join(db_path, f"{table}.csv")
+
+    if not os.path.exists(db_path) or not os.path.exists(table_path_csv):
+        click.echo("Database or table does not exist.")
+        sys.exit(1)
+
+    project_columns = [col.strip()
+                       for col in project.split(',')] if project else None
+    results = perform_groupby(table_path_csv, column, agg, project_columns)
+
+    for key, value in results.items():
+        click.echo(f"{key}: {value}")
+
+
+def perform_groupby(filename, group_column, agg, project_columns):
+    # used defaultdict to create a dict w/o key existing, avoiding keyerror
+    group_data = defaultdict(lambda: defaultdict(list))
+    with open(filename, 'r', newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            for col in (project_columns if project_columns else reader.fieldnames):
+                try:
+                    # Convert value to float for aggregation
+                    value = float(row[col])
+                    group_data[row[group_column]][col].append(value)
+                except ValueError:
+                    if agg == "count" or project_columns:
+                        continue
+                    pass
+
+    return {group: aggregate(group_vals, agg) for group, group_vals in group_data.items()}
+
+
+def aggregate(group_data, agg):
+    aggregated_data = {}
+    for col, values in group_data.items():
+        if agg == "mean":
+            aggregated_data[col] = sum(values) / len(values) if values else 0
+        elif agg == "min":
+            aggregated_data[col] = min(values) if values else 0
+        elif agg == "max":
+            aggregated_data[col] = max(values) if values else 0
+        elif agg == "sum":
+            aggregated_data[col] = sum(values) if values else 0
+        elif agg == "count":
+            aggregated_data[col] = len(values)
+    return aggregated_data
+
 # join
