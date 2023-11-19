@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>SynthQuery Demo</h1>
+    <p>Try out SynthQuery with a demo query.</p>
+    <form action="/results" method="post" target="_blank">
+        <input type="text" name="query" placeholder="Enter a demo query here">
+        <button type="submit">Submit Query</button>
+    </form>
+{% endblock %}
+

@@ -393,3 +393,85 @@ def join_jval(db, table1, table2, join_field):
         except KeyError as e:
             click.echo(f"Error in joining tables: {e}")
             sys.exit(1)
+
+def filter_data(data, criteria):
+    """ Filter data based on criteria which can include > and < operations. """
+    filtered_data = []
+    for record in data:
+        include_record = True
+        for field, condition in criteria.items():
+            if 'operation' in condition and 'value' in condition:
+                operation = condition['operation']
+                value = condition['value']
+                if operation == '=' and not record.get(field, None) == value:
+                    include_record = False
+                    break
+                elif operation == '>' and not record.get(field, 0) > value:
+                    include_record = False
+                    break
+                elif operation == '<' and not record.get(field, 0) < value:
+                    include_record = False
+                    break
+            elif record.get(field) != condition:
+                include_record = False
+                break
+        if include_record:
+            filtered_data.append(record)
+    return filtered_data
+
+def group_by(data, field):
+    """ Group data by a field """
+    grouped_data = defaultdict(list)
+    for record in data:
+        grouped_data[record.get(field, None)].append(record)
+    return dict(grouped_data)
+
+def order_by(data, fields):
+    """ Sort data by given fields """
+    return sorted(data, key=lambda x: tuple(x.get(field, None) for field in fields))
+
+@click.command()
+@click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
+@click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
+@click.option("--where", prompt="Enter the filter criteria as a JSON string", default="{}", help="Filter criteria as a JSON string.")
+@click.option("--groupby", prompt="Enter the field to group by", default="", help="Field to group by.")
+@click.option("--orderby", prompt="Enter the fields to sort by, separated by commas", default="", help="Fields to sort by.")
+def select_jval(db, table, where, groupby, orderby):
+    """
+    Select records from a JSON table with options to filter, group, and order the data.
+    e.g. python main.py select-jval --db=test-db --table=t --where='{"id" : {"operation": "<", "value": 4}}' --groupby=column1 --orderby=column2
+    """
+    db_path = os.path.join('database', db)
+    if not os.path.exists(db_path):
+        click.echo("Database does not exist.")
+        sys.exit(1)
+
+    table_path = os.path.join(db_path, f"{table}.json")
+    if not os.path.exists(table_path):
+        click.echo("Table does not exist.")
+        sys.exit(1)
+
+    with open(table_path, 'r') as file:
+        try:
+            data = json.load(file)
+            if not isinstance(data, list):
+                click.echo("Invalid table format.")
+                sys.exit(1)
+
+            # Apply where
+            if where:
+                criteria = json.loads(where)
+                data = filter_data(data, criteria)
+
+            # Apply groupby
+            if groupby:
+                data = group_by(data, groupby)
+                # If grouped, ordering within groups isn't handled in this implementation
+            elif orderby:  # Apply orderby only if not grouped
+                order_fields = [field.strip() for field in orderby.split(',')]
+                data = order_by(data, order_fields)
+
+            click.echo(json.dumps(data, indent=4))
+        except json.JSONDecodeError:
+            click.echo("Invalid JSON format.")
+            sys.exit(1)

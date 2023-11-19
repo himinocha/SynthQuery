@@ -83,6 +83,7 @@ cli.add_command(jf.filter_jval)
 cli.add_command(jf.order_jval)
 cli.add_command(jf.group_by_jval)
 cli.add_command(jf.join_jval)
+cli.add_command(jf.select_jval)
 
 
 if __name__ == '__main__':

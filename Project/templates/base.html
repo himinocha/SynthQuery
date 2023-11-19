@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>SynthQuery Interface</title>
+        <style>
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                margin: 0;
+                color: #333;
+            }
+
+            .navbar {
+                background-color: #333;
+                color: white;
+                display: flex;
+                justify-content: flex-start; /* Align items to the left */
+                align-items: center;
+                padding: 12px 0;
+            }
+
+            .navbar a {
+                color: white;
+                padding: 12px 20px;
+                text-decoration: none;
+                transition: background-color 0.3s;
+            }
+
+            .navbar a:hover {
+                background-color: #555;
+            }
+
+            .container {
+                max-width: 800px;
+                margin: 40px auto;
+                padding: 20px;
+                background-color: white;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                border-radius: 8px;
+                background: rgba(255, 255, 255, 0.8); /* Semi-transparent white background */
+            }
+
+            h1 {
+                color: #333366;
+            }
+
+            p {
+                line-height: 1.6;
+            }
+
+            /* Additional styling as needed... */
+        </style>
+    </head>
+<body>
+    <div class="navbar">
+        <div class="nav-left">
+            <a href="/home">Home</a>
+            <a href="/documentation">Documentation</a>
+            <a href="/demo">Demo</a>
+        </div>
+        <div class="nav-title">SynthQuery</div>
+        <div class="nav-right"></div> <!-- Placeholder for balance -->
+    </div>
+
+    <div class="container">
+        {% block content %}
+        {% endblock %}
+    </div>
+
+    <style>
+        .navbar {
+            background-color: #333;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+        }
+
+        .nav-left, .nav-right {
+            flex: 1;
+        }
+
+        .nav-title {
+            flex: 0;
+            font-size: 20px; /* Adjust as needed */
+            color: white;
+            text-align: center;
+        }
+
+        .navbar a {
+            color: white;
+            padding: 12px 20px;
+            text-decoration: none;
+            transition: background-color 0.3s;
+        }
+
+        .navbar a:hover {
+            background-color: #555;
+        }
+
+        /* Existing CSS for .container and other elements... */
+    </style>
+</body>
+</html>
