@@ -3,6 +3,9 @@ import os
 import sys
 import json
 import csv
+import heapq
+import tempfile
+import itertools
 
 
 @click.command()
@@ -234,12 +237,110 @@ def filter_tb(db, table, conditions):
                 writer.writerow(row)
 
 
+ASCEDNING_OPTION = {
+    'T': True,
+    "True": True,
+    "true": True,
+    "False": False,
+    "F": False,
+    "false": False
+
+}
+
+
 @click.command()
 @click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
 @click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
-@click.option("--conditions", prompt="Enter the udpate conditions as a JSON string", help="The conditions for row update", required=True)
-def order_tb(db, table, columns):
+@click.option("--column", prompt="Enter the column to order by", help="The column to order by", required=True)
+@click.option("--ascending", prompt="Ascending (T/F)", default='T', help="Sorting method", required=False)
+def order_tb(db, table, column, ascending):
+    """
+    Order a CSV table by column using external sorting.
+    """
+    # checking validity of the database
+    db_path = os.path.join('database', db)
+    if not os.path.exists(db_path):
+        click.echo("Database does not exist.")
+        sys.exit(1)
 
-# order
+    # checking validity of the table
+    table_path_csv = os.path.join(db_path, f"{table}.csv")
+    if not os.path.exists(table_path_csv):
+        click.echo("Table does not exist.")
+        sys.exit(1)
+
+    # checking existence of column for ordering
+    if not column:
+        click.echo("No column specified for ordering.")
+        sys.exit(1)
+
+    # perform sort
+    try:
+
+        external_sort(table_path_csv, column, ASCEDNING_OPTION[ascending])
+        click.echo(f"Table {table} ordered by column {column} successfully.")
+    except Exception as e:
+        click.echo(f"Error: {e}")
+        sys.exit(1)
+
+
+def external_sort(filename, column, reverse):
+    '''
+    perform external sort, the file will be place into temp files of chunks and sort then merged
+    '''
+    chunk_files = break_into_sorted_chunks(filename, column, reverse)
+    merge_chunks(chunk_files, filename, column)
+
+
+def break_into_sorted_chunks(filename, column, reverse):
+    '''
+    breaking the files into disired chunks size, default is 5000 (lines)
+    '''
+    chunk_size = 5000
+    chunk_files = []
+
+    with open(filename, 'r', newline='') as file:
+        reader = csv.DictReader(file)
+        # return the iterator of the reader
+        chunk = list(itertools.islice(reader, chunk_size))
+        # creating the temperary files
+        while chunk:
+            tmpfile = tempfile.NamedTemporaryFile(
+                delete=False, mode='w', newline='')
+            chunk_files.append(tmpfile.name)
+            writer = csv.DictWriter(tmpfile, fieldnames=reader.fieldnames)
+            writer.writeheader()
+            if reverse:
+                writer.writerows(sorted(chunk, key=lambda x: x[column]))
+            else:
+                writer.writerows(
+                    sorted(chunk, key=lambda x: x[column], reverse=True))
+            tmpfile.close()
+            chunk = list(itertools.islice(reader, chunk_size))
+
+    return chunk_files
+
+
+def merge_chunks(chunk_files, output_file, column):
+    '''
+    merging the temporary sorted files
+    '''
+    with open(output_file, 'w', newline='') as file:
+        files = [open(chunk_file, 'r', newline='')
+                 for chunk_file in chunk_files]
+        readers = [csv.DictReader(f) for f in files]
+
+        writer = csv.DictWriter(file, fieldnames=readers[0].fieldnames)
+        writer.writeheader()
+
+        merged = heapq.merge(*readers, key=lambda x: x[column])
+        for row in merged:
+            writer.writerow(row)
+
+        for f in files:
+            f.close()
+            os.remove(f.name)
+
+
 # groupby
 # join

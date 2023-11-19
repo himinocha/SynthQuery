@@ -74,7 +74,7 @@ cli.add_command(jf.ins_jval)
 cli.add_command(cf.del_rows)
 cli.add_command(cf.project_col)
 cli.add_command(cf.filter_tb)
-
+cli.add_command(cf.order_tb)
 
 cli.add_command(jf.del_rows_jval)
 cli.add_command(jf.project_col_jval)
