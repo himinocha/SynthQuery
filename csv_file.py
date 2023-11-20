@@ -7,6 +7,7 @@ import heapq
 import tempfile
 import itertools
 from collections import defaultdict
+from operator import itemgetter
 
 
 @click.command()
@@ -404,4 +405,65 @@ def aggregate(group_data, agg):
             aggregated_data[col] = len(values)
     return aggregated_data
 
-# join
+
+def external_sort_join(file_path, key_column):
+    with open(file_path, 'r', newline='') as file, \
+            tempfile.NamedTemporaryFile(mode='w+', newline='', delete=False) as outfile:
+
+        reader = csv.DictReader(file)
+        writer = csv.DictWriter(outfile, fieldnames=reader.fieldnames)
+        writer.writeheader()
+        sorted_rows = sorted(reader, key=lambda row: row[key_column])
+        writer.writerows(sorted_rows)
+
+        return outfile.name
+
+
+def sort_merge_join(left_file, right_file, left_column, right_column):
+    with open(left_file, 'r', newline='') as left, open(right_file, 'r', newline='') as right:
+        left_reader = csv.DictReader(left)
+        right_reader = csv.DictReader(right)
+
+        left_iter = itertools.groupby(
+            sorted(left_reader, key=itemgetter(left_column)), key=itemgetter(left_column))
+        right_iter = itertools.groupby(sorted(right_reader, key=itemgetter(
+            right_column)), key=itemgetter(right_column))
+
+        result = []
+        for left_key, left_group in left_iter:
+            right_group = next(
+                (rg for rk, rg in right_iter if rk == left_key), [])
+            for left_row in left_group:
+                for right_row in right_group:
+                    combined_row = {**left_row, **right_row}
+                    result.append(combined_row)
+
+        return result
+
+
+@click.command()
+@click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
+@click.option("--tbl1", prompt="Enter the name of the (left) table to join", help="The name of the table", required=True)
+@click.option("--tbl2", prompt="Enter the name of the (right) table to join", help="The name of the table", required=True)
+@click.option("--column", prompt="Enter the column to join on", help="The column to join on", required=True)
+def join_tb(db, tbl1, tbl2, column):
+    db_path = os.path.join('database', db)
+    left_table = os.path.join(db_path, f"{tbl1}.csv")
+    right_table = os.path.join(db_path, f"{tbl2}.csv")
+    left_column, right_column = column.split(',')
+
+    if not all(os.path.exists(table) for table in [left_table, right_table]):
+        click.echo("One or both tables do not exist.")
+        return
+
+    # external sort
+    sorted_left = external_sort_join(left_table, left_column)
+    sorted_right = external_sort_join(right_table, right_column)
+
+    # sort-merge join
+    joined_data = sort_merge_join(
+        sorted_left, sorted_right, left_column, right_column)
+
+    # show
+    for row in joined_data:
+        click.echo(row)
