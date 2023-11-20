@@ -75,6 +75,7 @@ cli.add_command(cf.filter_tb)
 cli.add_command(cf.order_tb)
 cli.add_command(cf.groupby)
 cli.add_command(cf.join_tb)
+cli.add_command(cf.query)
 
 cli.add_command(jf.del_rows_jval)
 cli.add_command(jf.project_col_jval)

@@ -120,38 +120,41 @@ def del_rows(db, table, conditions):
 @click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
 @click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
 @click.option("--columns", prompt="Enter the columns to select as a comma-separated list (leave empty to select all)", default='', help="The columns to project", required=False)
-def project_col(db, table, columns):
+@click.option("--save", prompt="Save the output to a file? (yes/no)", default='no', help="Whether to save the output to a file", required=False)
+def project_col(db, table, columns, save):
     """
     Project specified columns from a CSV table in the specified database.
-    --columns  Column1,Column2,...,
+    --columns Column1,Column2,...
     """
     db_path = os.path.join('database', db)
-    if not os.path.exists(db_path):
-        click.echo("Database does not exist.")
-        sys.exit(1)
-
     table_path_csv = os.path.join(db_path, f"{table}.csv")
-    if not os.path.exists(table_path_csv):
-        click.echo("Table does not exist.")
+
+    if not os.path.exists(db_path) or not os.path.exists(table_path_csv):
+        click.echo("Database or table does not exist.")
         sys.exit(1)
 
-    with open(table_path_csv, 'r', newline='') as csvfile:
+    selected_columns = [col.strip()
+                        for col in columns.split(',')] if columns else None
+
+    output_path = os.path.join(
+        db_path, table + "_project_temp" + ".csv") if save.lower() == 'yes' else None
+    with open(table_path_csv, 'r', newline='') as csvfile, \
+            open(output_path, 'w', newline='') if output_path else sys.stdout as output:
+
         reader = csv.DictReader(csvfile)
+        writer = csv.DictWriter(
+            output, fieldnames=selected_columns or reader.fieldnames, extrasaction='ignore')
 
-        selected_columns = [col.strip() for col in columns.split(
-            ',')] if columns else reader.fieldnames
-
-        if not all(col in reader.fieldnames for col in selected_columns):
+        if not selected_columns or all(col in reader.fieldnames for col in selected_columns):
+            writer.writeheader()
+            for row in reader:
+                writer.writerow(row)
+        else:
             click.echo(
                 "One or more selected columns do not exist in the table.")
-            sys.exit(1)
 
-        writer = csv.DictWriter(
-            sys.stdout, fieldnames=selected_columns, extrasaction='ignore')
-        writer.writeheader()
-
-        for row in reader:
-            writer.writerow(row)
+    if save.lower() == 'yes':
+        click.echo(f"Projected data saved to {output_path}")
 
 
 # update
@@ -206,11 +209,13 @@ def update_rows(db, table, conditions):
 @click.command()
 @click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
 @click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
-@click.option("--conditions", prompt="Enter the udpate conditions as a JSON string", help="The conditions for row update", required=True)
-def filter_tb(db, table, conditions):
+@click.option("--conditions", prompt="Enter the update conditions as a JSON string", help="The conditions for row update", required=True)
+@click.option("--save", prompt="Save the output to a file? (yes/no)", default='no', help="Whether to save the output to a file", required=False)
+def filter_tb(db, table, conditions, save):
     """
     Filter rows from a CSV table in the specified database based on given conditions.
-    e.g. --conditions {"column1": value1,"column2":value2}
+    e.g. --conditions '{"column1": "value1", "column2": "value2"}'
+    --save yes
     """
     db_path = os.path.join('database', db)
     if not os.path.exists(db_path):
@@ -228,15 +233,23 @@ def filter_tb(db, table, conditions):
         click.echo("Invalid JSON string.")
         sys.exit(1)
 
-    with open(table_path_csv, 'r', newline='') as csvfile:
+    output_path = os.path.join(
+        db_path, table + "_filter_temp" + ".csv") if save.lower() == 'yes' else None
+    with open(table_path_csv, 'r', newline='') as csvfile, \
+            open(output_path, 'w', newline='') if output_path else sys.stdout as output:
+
         reader = csv.DictReader(csvfile)
         writer = csv.DictWriter(
-            sys.stdout, fieldnames=reader.fieldnames, extrasaction='ignore')
-        writer.writeheader()
+            output, fieldnames=reader.fieldnames, extrasaction='ignore')
+        if output_path:
+            writer.writeheader()
 
         for row in reader:
             if all(row[key] == value for key, value in conditions_dict.items()):
                 writer.writerow(row)
+
+    if save.lower() == 'yes':
+        click.echo(f"Filtered data saved to {output_path}")
 
 
 ASCEDNING_OPTION = {
@@ -351,11 +364,8 @@ def merge_chunks(chunk_files, output_file, column):
 @click.option("--column", prompt="Enter the column to group by", help="The column to group by", required=True)
 @click.option("--agg", prompt="Enter the aggregation for group by", help="The aggregation to group by", required=True)
 @click.option("--project", prompt="Enter the columns to aggregate as a comma-separated list (leave empty if aggregation is count)", default='', help="The columns to project", required=False)
-def groupby(db, table, column, agg, project):
-    '''
-    groupby a column with aggregation on certain column
-    mean, min, max, sum can only applied to numeric columns
-    '''
+@click.option("--save", prompt="Save the output to a file? (yes/no)", default='no', help="Whether to save the output to a file", required=False)
+def groupby(db, table, column, agg, project, save):
     db_path = os.path.join('database', db)
     table_path_csv = os.path.join(db_path, f"{table}.csv")
 
@@ -367,8 +377,21 @@ def groupby(db, table, column, agg, project):
                        for col in project.split(',')] if project else None
     results = perform_groupby(table_path_csv, column, agg, project_columns)
 
-    for key, value in results.items():
-        click.echo(f"{key}: {value}")
+    output_path = os.path.join(
+        db_path, table + "_groupby_temp" + ".csv") if save.lower() == 'yes' else None
+
+    with open(output_path, 'w', newline='') if output_path else sys.stdout as output:
+        writer = csv.DictWriter(
+            output, fieldnames=['Group', 'Aggregated Value'])
+        if output_path:
+            writer.writeheader()
+
+        for key, value in results.items():
+            writer.writerow(
+                {'Group': key, 'Aggregated Value': json.dumps(value)})
+
+    if save.lower() == 'yes':
+        click.echo(f"Grouped data saved to {output_path}")
 
 
 def perform_groupby(filename, group_column, agg, project_columns):
@@ -445,7 +468,7 @@ def sort_merge_join(left_file, right_file, left_column, right_column):
 @click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
 @click.option("--tbl1", prompt="Enter the name of the (left) table to join", help="The name of the table", required=True)
 @click.option("--tbl2", prompt="Enter the name of the (right) table to join", help="The name of the table", required=True)
-@click.option("--column", prompt="Enter the column to join on", help="The column to join on", required=True)
+@click.option("--column", prompt="Enter the column to join on", help="The column to join on")
 def join_tb(db, tbl1, tbl2, column):
     db_path = os.path.join('database', db)
     left_table = os.path.join(db_path, f"{tbl1}.csv")
@@ -467,3 +490,32 @@ def join_tb(db, tbl1, tbl2, column):
     # show
     for row in joined_data:
         click.echo(row)
+
+
+@click.command()
+@click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
+@click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
+@click.option("--where", prompt="Enter the conditions as a JSON string", default='', help="Conditions for filtering", required=False)
+@click.option("--groupby", prompt="Enter the column to group by", default='', help="Column to group by", required=False)
+@click.option("--agg", prompt="Enter the aggregation for group by", default='', help="Aggregation for group by", required=False)
+@click.option("--having", prompt="Enter the conditions as a JSON string After groupby", default='', help="where for group by", required=False)
+@click.option("--order_column", default='', help="Column to order by", required=False)
+@click.option("--project_columns", default='', help="Columns to project", required=False)
+def query(db, table, where, groupby, agg, having, order_column, project_columns):
+    ''''''
+
+    if where:
+        filter_tb(db, table, where, "yes")
+
+    if groupby and agg:
+        groupby(db, table + "_filter_temp", groupby,
+                agg, project_columns, "yes")
+
+    if having:
+        filter_tb(db, table + "_groupby_temp", where, "yes")
+
+    if project_columns:
+        project_col(db, table + "_filter_temp", project_columns, "yes")
+
+    if order_column:
+        order_tb(db, table + "_project_temp", order_column)
