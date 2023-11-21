@@ -121,7 +121,7 @@ def update_rows(db, table, conditions):
     """
     Delete rows from a CSV table in the specified database based on given conditions.
     e.g. --conditions {"column1": {"originalvalue":"newvalue"},"column2":{"originalvalue":"newvalue"}}
-    python3 main.py update-rows --db=test --table=t2 --conditions='{"column1": {"originalvalue": "value1", "newvalue": "1000"}}'
+    python3 main.py update-rows --db=test --table=t2 --conditions='{"column1": {"originalvalue": "2000", "newvalue": "1000"}}'
     """
     db_path = os.path.join('../database', db)
     if not os.path.exists(db_path):
@@ -358,7 +358,7 @@ def sort_merge_join(left_file, right_file, left_column, right_column):
 def join_tb(db, tbl1, tbl2, column):
     """
     Join two  tables based on key and return the joined data.
-    python3 main.py join-tb --db=ev --tb1=ev_data_small --tb2=emission_standards --column='Model Year','Model Year'
+    python3 main.py join-tb --db=ev --tbl1=ev_data_small --tbl2=emission_standards --column='Model Year','Model Year'
     """
     db_path = os.path.join('../database', db)
     left_table = os.path.join(db_path, f"{tbl1}.csv")
@@ -381,115 +381,135 @@ def join_tb(db, tbl1, tbl2, column):
 # =======================================================
 
 
-@click.command()
-@click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
-@click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
-@click.option("--where", default='', help="Conditions for filtering", required=False)
-@click.option("--groupby", default='', help="Column to group by", required=False)
-@click.option("--agg", default='', help="Aggregation for group by", required=False)
-@click.option("--having", default='', help="where for group by", required=False)
-@click.option("--order_col", default='', help="Column to order by", required=False)
-@click.option("--ascending", default='T', help="ascending (T/F)", required=False)
-@click.option("--project_col", default='', help="Columns to project", required=False)
 def query(db, table, where, groupby, agg, having, order_col, ascending, project_col):
     '''
-    e.g. python3 main.py query --db ev --table ev_data --where '{"Make": {"operator": "eq", "value": "TESLA"}}' --groupby Model --agg count --order_col 'Base MSRP' --ascending T --project_col '2020 Census Tract'
+    python3 main.py query --db=ev --table=ev_data --where='{"Make": {"operator": "eq", "value": "TESLA"}}' --groupby='Model' --agg=count --order_col='Base MSRP' --ascending=T --project_col='2020 Census Tract','Postal Code'
     '''
-
-    db_path = os.path.join('database', db)
-    if not os.path.exists(db_path):
-        click.echo("Database does not exist.")
-        sys.exit(1)
-
+    db_path = os.path.join('../database', db)
     table_path_csv = os.path.join(db_path, f"{table}.csv")
-    if not os.path.exists(table_path_csv):
-        click.echo("Table does not exist.")
-        sys.exit(1)
 
-    try:
-        conditions_dict = json.loads(where)
-    except json.JSONDecodeError:
-        click.echo("Invalid JSON string.")
-        sys.exit(1)
+    if not os.path.exists(db_path) or not os.path.exists(table_path_csv):
+        return "Database or table does not exist."
+
+    data = read_csv_data(table_path_csv)
 
     if where:
+        try:
+            conditions_dict = json.loads(where)
+            data = filter_data(data, conditions_dict)
+        except json.JSONDecodeError:
+            return "Invalid JSON string."
 
-        output_path = os.path.join(
-            db_path, table + "_filter_temp" + ".csv")
-
-        with open(table_path_csv, 'r', newline='') as csvfile, \
-                open(output_path, 'w', newline='') if output_path else sys.stdout as output:
-
-            reader = csv.DictReader(csvfile)
-            writer = csv.DictWriter(
-                output, fieldnames=reader.fieldnames, extrasaction='ignore')
-            if output_path:
-                writer.writeheader()
-
-            for row in reader:
-                if all(evaluate_condition(row[key], cond)
-                       for key, cond in conditions_dict.items() if key in row):
-                    writer.writerow(row)
-        table_path_csv = output_path
     if groupby and agg:
-        results = perform_groupby(table_path_csv, groupby, agg, None)
-
-        fieldnames = ['Group'] + \
-            list(set(k for v in results.values() for k in v.keys()))
-
-        output_path = os.path.join(db_path, table + "_groupby_temp.csv")
-        with open(output_path, 'w', newline='') as output:
-            writer = csv.DictWriter(output, fieldnames=fieldnames)
-            writer.writeheader()
-
-            for key, value in results.items():
-                row = {'Group': key, **value}
-                writer.writerow(row)
-        table_path_csv = output_path
-
+        data = groupby_aggregate(data, groupby, agg)
         if having:
-            conditions_dict = json.loads(having)
+            try:
+                having_dict = json.loads(having)
+                data = filter_data(data, having_dict)
+            except json.JSONDecodeError:
+                return "Invalid JSON string."
 
-            output_path = os.path.join(
-                db_path, table + "_having_temp" + ".csv")
-            with open(table_path_csv, 'r', newline='') as csvfile, \
-                    open(output_path, 'w', newline='') if output_path else sys.stdout as output:
-
-                reader = csv.DictReader(csvfile)
-                writer = csv.DictWriter(
-                    output, fieldnames=reader.fieldnames, extrasaction='ignore')
-                if output_path:
-                    writer.writeheader()
-
-                for row in reader:
-                    condition_met = all(evaluate_condition(
-                        row[key], value) for key, value in conditions_dict.items())
-                    if condition_met:
-                        writer.writerow(row)
-            table_path_csv = output_path
     if order_col:
-        if ascending:
-            external_sort(table_path_csv, order_col,
-                          ASCEDNING_OPTION[ascending])
-            table_path_csv = output_path
+        data = sort_data(data, order_col, ascending)
 
     if project_col:
-        selected_columns = [col.strip()
-                            for col in project_col.split(',')] if project_col else None
+        selected_columns = [col.strip() for col in project_col]
+        data = project_columns(data, selected_columns)
 
-        output_path = os.path.join(
-            db_path, table + "_project_temp" + ".csv")
-        with open(table_path_csv, 'r', newline='') as csvfile, \
-                open(output_path, 'w', newline='') if output_path else sys.stdout as output:
+    return data
 
-            reader = csv.DictReader(csvfile)
-            writer = csv.DictWriter(
-                output, fieldnames=selected_columns or reader.fieldnames, extrasaction='ignore')
 
-            if not selected_columns or all(col in reader.fieldnames for col in selected_columns):
-                writer.writeheader()
-                for row in reader:
-                    writer.writerow(row)
-            else:
-                click.echo(
-                    "One or more selected columns do not exist in the table.")
+def read_csv_data(file_path):
+    with open(file_path, 'r', newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+        return [row for row in reader]
+
+
+def project_columns(data, columns):
+    if not columns:
+        return data
+
+    projected_data = []
+    for row in data:
+        projected_row = {col: row.get(col, None)
+                         for col in columns if col in row}
+        projected_data.append(projected_row)
+
+    return projected_data
+
+
+def filter_data(data, conditions):
+    filtered_data = []
+    for row in data:
+        if all(evaluate_condition_query(row.get(key, ""), cond) for key, cond in conditions.items()):
+            filtered_data.append(row)
+    return filtered_data
+
+
+def evaluate_condition_query(row_value, condition):
+    op = condition.get("operator", "eq")
+    value = condition["value"]
+    if op in ["gt", "lt", "ge", "le"]:
+        return operators[op](float(row_value), float(value))
+    elif op == "contains":
+        return operators[op](row_value, value)
+    else:  # eq, ne
+        return operators[op](row_value, value)
+
+
+def groupby_aggregate(data, group_column, agg):
+    results = perform_groupby_query(data, group_column, agg, None)
+
+    final_results = []
+    for key, value in results.items():
+        row = {'Group': key, **value}
+        final_results.append(row)
+
+    return final_results
+
+
+def perform_groupby_query(data, group_column, agg, project_columns):
+    group_data = defaultdict(lambda: defaultdict(list))
+    for row in data:
+        for col in project_columns if project_columns else row.keys():
+            try:
+                value = float(row[col])
+                group_data[row[group_column]][col].append(value)
+            except ValueError:
+                if agg == "count" or project_columns:
+                    continue
+
+    return {group: aggregate(group_vals, agg) for group, group_vals in group_data.items()}
+# ================================================
+
+
+def sort_data(data, column, ascending):
+    ascending_bool = ASCEDNING_OPTION.get(ascending, True)
+    return external_sort_query(data, column, ascending_bool)
+
+
+def merge_chunks_query(chunk_files, column):
+    sorted_data = []
+    for chunk in chunk_files:
+        sorted_data.extend(chunk)
+    return sorted(sorted_data, key=lambda x: x[column])
+
+
+def break_into_sorted_chunks_query(data, column, ascending):
+    chunk_size = 5000
+    sorted_chunks = []
+    start_index = 0
+
+    while start_index < len(data):
+        chunk = data[start_index:start_index + chunk_size]
+        sorted_chunk = sorted(
+            chunk, key=lambda x: x[column], reverse=not ascending)
+        sorted_chunks.append(sorted_chunk)
+        start_index += chunk_size
+
+    return sorted_chunks
+
+
+def external_sort_query(data, column, ascending):
+    chunk_files = break_into_sorted_chunks_query(data, column, ascending)
+    return merge_chunks_query(chunk_files, column)

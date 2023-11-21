@@ -126,6 +126,7 @@ def project_col(db, table, columns, save):
     """
     Project specified columns from a CSV table in the specified database.
     --columns Column1,Column2,...
+
     """
     db_path = os.path.join('database', db)
     table_path_csv = os.path.join(db_path, f"{table}.csv")
@@ -497,6 +498,9 @@ def sort_merge_join(left_file, right_file, left_column, right_column):
 @click.option("--tbl2", prompt="Enter the name of the (right) table to join", help="The name of the table", required=True)
 @click.option("--column", prompt="Enter the column to join on", help="The column to join on")
 def join_tb(db, tbl1, tbl2, column):
+    '''
+    python3 main.py join-tb --db=ev --tbl1=ev_data_small --tbl2=emission_standards --column='Model Year','Model Year'
+    '''
     db_path = os.path.join('database', db)
     left_table = os.path.join(db_path, f"{tbl1}.csv")
     right_table = os.path.join(db_path, f"{tbl2}.csv")
@@ -533,7 +537,7 @@ def join_tb(db, tbl1, tbl2, column):
 @click.option("--project_col", default='', help="Columns to project", required=False)
 def query(db, table, where, groupby, agg, having, order_col, ascending, project_col):
     '''
-    e.g. python3 main.py query --db ev --table ev_data --where '{"Make": {"operator": "eq", "value": "TESLA"}}' --groupby Model --agg count --order_col 'Base MSRP' --ascending T --project_col '2020 Census Tract'
+    e.g. python3 main.py query --db=ev --table=ev_data --where='{"Make": {"operator": "eq", "value": "TESLA"}}' --groupby='Model' --agg=count --order_col='Base MSRP' --ascending=T --project_col='2020 Census Tract'
     '''
 
     db_path = os.path.join('database', db)

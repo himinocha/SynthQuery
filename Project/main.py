@@ -194,8 +194,32 @@ def csv_results():
                 column = query_parts[6].split('=')[1].replace('\'', '')
 
                 result = cf.join_tb(db, tbl1, tbl2, column)
+            elif func == 'query':
+                where = groupby = agg = having = order_col = ascending = project_col = ''
+
+                for part in query_parts[5:]:
+                    if '--where=' in part:
+                        where = part.split('=', 1)[1].replace('\'', '')
+                    elif '--groupby=' in part:
+                        groupby = part.split('=', 1)[1].replace('\'', '')
+                    elif '--agg=' in part:
+                        agg = part.split('=', 1)[1].replace('\'', '')
+                    elif '--having=' in part:
+                        having = part.split('=', 1)[1].replace('\'', '')
+                    elif '--order_col=' in part:
+                        order_col = part.split('=', 1)[1].replace('\'', '')
+                    elif '--ascending=' in part:
+                        ascending = part.split('=', 1)[1].replace('\'', '')
+                    elif '--project_col=' in part:
+                        project_col = part.split(
+                            '=', 1)[1].replace('\'', '').split(',')
+
+                result = cf.query(db, table, where, groupby, agg,
+                                  having, order_col, ascending, project_col)
             else:
                 result = "Invalid query format."
+        else:
+            result = "Invalid query format."
 
         return render_template('csv_results.html', query=csv_query, result=result)
 
