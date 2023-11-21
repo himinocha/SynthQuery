@@ -291,11 +291,11 @@ def filter_data(data, criteria):
                 if value.isdigit():
                     value = float(value)
                     comp_val = float(record.get(field, 0))
-                    comp_eq_val = float(record.get(field, None))
+                    comp_eq_val = float(record.get(field, 0))
                 else:
                     value = value
                     comp_val = record.get(field, 0)
-                    comp_eq_val = record.get(field, None)
+                    comp_eq_val = record.get(field, 0)
                 
                 # compare values
                 if operation == '=' and not comp_eq_val == value:
