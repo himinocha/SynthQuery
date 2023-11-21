@@ -47,11 +47,13 @@ def results():
             # select * from t
             if len(query_brkdwn) == 5:
                 result = jf.select_jval(db, table, '', '', '')
-                return render_template('results.html', query=query, result=result)
+                pretty_result = json.dumps(result, indent=4)
+                return render_template('results.html', query=query, result=pretty_result)
             elif len(query_brkdwn) == 6:
                 where = query_brkdwn[5][8:]
                 result = jf.select_jval(db, table, where, '', '')
-                return render_template('results.html', query=query, result=result)
+                pretty_result = json.dumps(result, indent=4)
+                return render_template('results.html', query=query, result=pretty_result)
 
             # when there are conditions
             where = query_brkdwn[5][8:]
@@ -67,7 +69,7 @@ def results():
 
             result = jf.ins_jval(db, table, values)
 
-        # python main.py del-rows-jval --db=test-db --table=salaries --values='[{"work_year":"2024","experience_level":"EX"}]
+        # python main.py del-rows-jval --db=test-db --table=salaries --conditions='{"work_year":"2024","experience_level":"EX"}'
         # python main.py del-rows-jval --db=test-db --table=salaries --conditions='{"work_year":"2024","experience_level":"EX","employment_type":"FT","job_title":"Jedi_Master","salary":"1000000","salary_currency":"USD","salary_in_usd":"1000000","employee_residence":"US","remote_ratio":0,"company_location":"US","company_size":"S"}'
         elif func == 'del-rows-jval':
             conditions = query_brkdwn[5][13:]
@@ -87,7 +89,7 @@ def results():
 
             result = jf.update_jval(db, table, record_id, new_values)
 
-        # python main.py filter-jval --db=test-db --table=salaries --criteria='{"column2":3}'
+        # python main.py filter-jval --db=test-db --table=salaries --criteria='{"column2":"3"}'
         elif func == 'filter-jval':
             criteria = query_brkdwn[5][11:]
 
@@ -112,8 +114,9 @@ def results():
             join_field = query_brkdwn[6][13:]
 
             result = jf.join_jval(db, table1, table2, join_field)
-
-        return render_template('results.html', query=query, result=result)
+        
+        pretty_result = json.dumps(result, indent=4)
+        return render_template('results.html', query=query, result=pretty_result)
 
 
 @app.route('/csv_results', methods=['GET', 'POST'])

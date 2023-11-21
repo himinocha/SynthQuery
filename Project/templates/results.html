@@ -1,8 +1,30 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<style>
+    .json-container {
+        /* Set a fixed height and enable vertical scrolling */
+        max-height: 400px; /* Adjust as needed */
+        overflow-y: auto; /* Vertical scrollbar if content overflows */
+        background-color: #f8f9fa; /* Light background for readability */
+        border: 1px solid #ccc; /* Border for visibility */
+        padding: 10px; /* Padding for aesthetics */
+    }
+    pre {
+        white-space: pre-wrap; /* Wrap text to prevent horizontal scrolling */
+        word-break: break-word; /* Break long words */
+    }
+</style>
+
 <h1>Query Results</h1>
-<p>Here are the results of your query: {{ result }}</p>
+{% if result %}
+<div class="json-container">
+    <pre>{{ result|safe }}</pre> <!-- Display the formatted JSON -->
+</div>
+{% else %}
+<p>No results available.</p>
+{% endif %}
+
 {% if query %}
 <div>
     <p>Your query was: {{ query }}</p>
