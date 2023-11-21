@@ -403,13 +403,24 @@ def filter_data(data, criteria):
             if 'operation' in condition and 'value' in condition:
                 operation = condition['operation']
                 value = condition['value']
-                if operation == '=' and not record.get(field, None) == value:
+                # convert str to float if possible
+                if value.isdigit():
+                    value = float(value)
+                    comp_val = float(record.get(field, 0))
+                    comp_eq_val = float(record.get(field, None))
+                else:
+                    value = value
+                    comp_val = record.get(field, 0)
+                    comp_eq_val = record.get(field, None)
+                
+                # compare values
+                if operation == '=' and not comp_eq_val == value:
                     include_record = False
                     break
-                elif operation == '>' and not record.get(field, 0) > value:
+                elif operation == '>' and not comp_val > value:
                     include_record = False
                     break
-                elif operation == '<' and not record.get(field, 0) < value:
+                elif operation == '<' and not comp_val < value:
                     include_record = False
                     break
             elif record.get(field) != condition:
