@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>CSV Query Results</h1>
+<p>Here are the results of your CSV query:</p>
+{% if result %}
+<div style="overflow-x:auto; max-height: 400px; overflow-y: auto;">
+    {% if result is iterable and not result is string %}
+    <table>
+        <thead>
+            {% for key in result[0].keys() %}
+            <th>{{ key }}</th>
+            {% endfor %}
+        </thead>
+        <tbody>
+            {% for row in result %}
+            <tr>
+                {% for value in row.values() %}
+                <td>{{ value }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>{{ result }}</p>
+    {% endif %}
+</div>
+{% else %}
+<p>No CSV query was submitted or there were no results.</p>
+{% endif %}
+
+{% if csv_query %}
+<div>
+    <p>Your CSV query was: {{ csv_query }}</p>
+</div>
+{% endif %}
+{% endblock %}

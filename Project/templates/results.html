@@ -1,14 +1,13 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <h1>Query Results</h1>
-    <p>Here are the results of your query: {{ result }}</p>
-    {% if query %}
-        <div>
-            <!-- Display the query results here. For demonstration, simply showing the query. -->
-            <p>Your query was: {{ query }}</p>
-        </div>
-    {% else %}
-        <p>No query was submitted.</p>
-    {% endif %}
+<h1>Query Results</h1>
+<p>Here are the results of your query: {{ result }}</p>
+{% if query %}
+<div>
+    <p>Your query was: {{ query }}</p>
+</div>
+{% else %}
+<p>No query was submitted.</p>
+{% endif %}
 {% endblock %}

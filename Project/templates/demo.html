@@ -1,11 +1,14 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <h1>SynthQuery Demo</h1>
-    <p>Try out SynthQuery with a demo query.</p>
-    <form action="/results" method="post" target="_blank">
-        <input type="text" name="query" placeholder="Enter a demo query here">
-        <button type="submit">Submit Query</button>
-    </form>
+<h1>SynthQuery Demo</h1>
+<p>Try out SynthQuery with a demo query.</p>
+<form action="/results" method="post" target="_blank">
+    <input type="text" name="query" placeholder="Enter a JSON query here">
+    <button type="submit">Submit JSON Query</button>
+</form>
+<form action="/csv_results" method="post" target="_blank">
+    <input type="text" name="csv_query" placeholder="Enter a CSV query here">
+    <button type="submit">Submit CSV Query</button>
+</form>
 {% endblock %}
-

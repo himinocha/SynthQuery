@@ -2,6 +2,9 @@ from flask import Flask, request, render_template
 import re
 import json
 import json_file as jf
+import csv_file as cf
+import shlex
+import re
 
 # import sys
 # sys.path.append('../')
@@ -39,7 +42,6 @@ def results():
         func = query_brkdwn[2]
         db = query_brkdwn[3][5:]
         table = query_brkdwn[4][8:]
-
         # python main.py select-jval --db=test-db --table=salaries --where='{"salary_in_usd":{"operation":">","value":"400000"}}' --groupby=job_title --orderby=salary_in_usd
         if func == 'select-jval':
             # select * from t
@@ -112,6 +114,90 @@ def results():
             result = jf.join_jval(db, table1, table2, join_field)
 
         return render_template('results.html', query=query, result=result)
+
+
+@app.route('/csv_results', methods=['GET', 'POST'])
+def csv_results():
+    if request.method == 'POST':
+        csv_query = request.form['csv_query']
+        result = ''
+
+        # Split the query
+        query_parts = shlex.split(csv_query)
+
+        if len(query_parts) >= 4:
+            func = query_parts[2]
+            db = query_parts[3][5:]
+            table = query_parts[4][8:]
+
+            if func == 'ins-cval':
+                json_str = ' '.join(query_parts[5:])
+                json_str = json_str[json_str.index('=') + 1:]
+
+                try:
+                    values = json.loads(json_str)
+                    result = cf.ins_cval(db, table, values)
+                except json.JSONDecodeError as e:
+                    result = f"JSON decoding error: {e}"
+            elif func == 'del-rows':
+
+                conditions_str = ' '.join(query_parts[5:])
+                conditions_str = conditions_str[conditions_str.index('=') + 1:]
+                try:
+                    conditions_dict = json.loads(conditions_str)
+                    result = cf.del_rows(db, table, conditions_dict)
+                except json.JSONDecodeError as e:
+                    result = f"JSON decoding error: {e}"
+            elif func == 'project-col':
+                db = query_parts[3].split('=')[1]
+                table = query_parts[4].split('=')[1]
+
+                columns_str = query_parts[5].split('=')[1]
+                columns = [col.strip().replace('\'', '')
+                           for col in columns_str.split(',')]
+                result = cf.project_col(db, table, columns)
+            elif func == 'update-rows':
+                conditions_str = ' '.join(query_parts[5:])
+                conditions_str = conditions_str[conditions_str.index('=') + 1:]
+
+                try:
+                    conditions_dict = json.loads(conditions_str)
+                    result = cf.update_rows(db, table, conditions_dict)
+                except json.JSONDecodeError as e:
+                    result = f"JSON decoding error: {e}"
+            elif func == 'filter-tb':
+                conditions_str = ' '.join(query_parts[5:])
+                conditions_str = conditions_str[conditions_str.index('=') + 1:]
+
+                try:
+                    conditions_dict = json.loads(conditions_str)
+                    result = cf.filter_tb(db, table, conditions_dict)
+                except json.JSONDecodeError as e:
+                    result = f"JSON decoding error: {e}"
+            elif func == 'order-tb':
+                db = query_parts[3].split('=')[1]
+                table = query_parts[4].split('=')[1]
+                column = query_parts[5].split('=')[1].strip("'")
+                ascending = query_parts[6].split('=')[1]
+
+                result = cf.order_tb(db, table, column, ascending)
+            elif func == 'groupby':
+                db = query_parts[3].split('=')[1]
+                table = query_parts[4].split('=')[1]
+                column = query_parts[5].split('=')[1].strip("'")
+                agg = query_parts[6].split('=')[1]
+                result = cf.groupby(db, table, column, agg)
+            elif func == 'join-tb':
+                db = query_parts[3].split('=')[1]
+                tbl1 = query_parts[4].split('=')[1]
+                tbl2 = query_parts[5].split('=')[1]
+                column = query_parts[6].split('=')[1].replace('\'', '')
+
+                result = cf.join_tb(db, tbl1, tbl2, column)
+            else:
+                result = "Invalid query format."
+
+        return render_template('csv_results.html', query=csv_query, result=result)
 
 
 if __name__ == '__main__':
