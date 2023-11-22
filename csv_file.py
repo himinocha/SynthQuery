@@ -18,7 +18,7 @@ import operator
 def ins_cval(db, table, values):
     """
     Insert csv values into a table in the specified database
-    # for csv: python main.py insert-values --db=test --table=t1 --values='{"column3": "value1-", "column4": "value20"}'
+    # for csv: python3 main.py ins-cval --db=test --table=t2 --values='{"column3": "value10", "column4": "value20"}'
 
     """
     db_path = os.path.join('database', db)
@@ -85,6 +85,7 @@ def ins_cval(db, table, values):
 def del_rows(db, table, conditions):
     """
     Delete rows from a CSV table in the specified database based on given conditions.
+    python3 main.py del-rows --db=test --table=t2 --conditions='{"column3": "value10", "column4": "value20"}'
     e.g. --conditions {"column1": "value1", "column2": "value2"}
     """
     db_path = os.path.join('database', db)
@@ -168,6 +169,7 @@ def update_rows(db, table, conditions):
     """
     Delete rows from a CSV table in the specified database based on given conditions.
     e.g. --conditions {"column1": {"originalvalue":"newvalue"},"column2":{"originalvalue":"newvalue"}}
+    python3 main.py update-rows --db=test --table=t2 --conditions='{"column1": {"originalvalue":"newvalue"},"column2":{"originalvalue":"newvalue"}}'
     """
     db_path = os.path.join('database', db)
     if not os.path.exists(db_path):
