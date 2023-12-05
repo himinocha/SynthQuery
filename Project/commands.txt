@@ -1,0 +1,16 @@
+python main.py select-jval --db=test-db --table=salaries --where='{"salary_in_usd":{"operation":">","value":"400000"}}' --groupby=job_title --orderby=salary_in_usd
+
+python main.py ins-jval --db=test-db --table=salaries --values='[{"work_year":"2024","experience_level":"EX","employment_type":"FT","job_title":"Jedi_Master","salary":"1000000","salary_currency":"USD","salary_in_usd":"1000000","employee_residence":"US","remote_ratio":0,"company_location":"US","company_size":"S"}]'
+python main.py ins-jval --db=test-db --table=salaries --values='[{"work_year":"2024","experience_level":"EX"}]
+
+python main.py del-rows-jval --db=test-db --table=salaries --conditions='{"work_year":"2024","experience_level":"EX"}'
+python main.py del-rows-jval --db=test-db --table=salaries --conditions='{"work_year":"2024","experience_level":"EX","employment_type":"FT","job_title":"Jedi_Master","salary":"1000000","salary_currency":"USD","salary_in_usd":"1000000","employee_residence":"US","remote_ratio":0,"company_location":"US","company_size":"S"}'
+
+python main.py project-col-jval --db=test-db --table=salaries --columns=work_year,salary_in_usd
+
+python main.py update-jval --db=test-db --table=salaries --record-id=1 --new-values='{"column1":"value1","column2":"3"}'
+
+python main.py filter-jval --db=test-db --table=salaries --criteria='{"column2":"3"}'
+
+python main.py order-jval --db=test-db --table=salaries --fields=salary_in_usd
+

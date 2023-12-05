@@ -114467,6 +114467,17 @@
     {
         "work_year": "2024",
         "experience_level": "EX",
-        "id": 1
+        "employment_type": "FT",
+        "job_title": "Jedi_Master",
+        "salary": "1000000",
+        "salary_currency": "USD",
+        "salary_in_usd": "1000000",
+        "employee_residence": "US",
+        "remote_ratio": 0,
+        "company_location": "US",
+        "company_size": "S",
+        "id": 1,
+        "column1": "value1",
+        "column2": "3"
     }
 ]
