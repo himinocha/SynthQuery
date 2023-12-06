@@ -114,7 +114,7 @@ def results():
             join_field = query_brkdwn[6][13:]
 
             result = jf.join_jval(db, table1, table2, join_field)
-        
+
         pretty_result = json.dumps(result, indent=4)
         return render_template('results.html', query=query, result=pretty_result)
 

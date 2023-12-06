@@ -11,24 +11,28 @@ from operator import itemgetter
 import operator
 
 
+def get_last_chunk_file(table_path, chunk_prefix):
+    chunk_files = [f for f in os.listdir(
+        table_path) if f.startswith(chunk_prefix)]
+    if not chunk_files:
+        return None, 0
+    latest_chunk = max(chunk_files, key=lambda x: int(
+        x.split('_')[-1].split('.')[0]))
+    return latest_chunk, int(latest_chunk.split('_')[-1].split('.')[0])
+
+
 @click.command()
 @click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
 @click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
 @click.option("--values", prompt="Enter the values as a JSON string", help="The values to insert", required=True)
-def ins_cval(db, table, values):
-    """
-    Insert csv values into a table in the specified database
-    # for csv: python3 main.py ins-cval --db=test --table=t2 --values='{"column3": "value10", "column4": "value20"}'
-
-    """
+def ins_cval(db, table, values, chunk_size=5000):
+    '''
+    python main.py ins-cval --db=ev --table=ev_data --values='{"VIN (1-10)": "3ZVZ4JX19K", "County": "Franklin", "City": "Pasco", "State": "WA", "Postal Code": "99301", "Model Year": "2019", "Make": "FORD", "Model": "MUSTANG MACH-E", "Electric Vehicle Type": "Battery Electric Vehicle (BEV)", "Clean Alternative Fuel Vehicle (CAFV) Eligibility": "Eligible", "Electric Range": 270, "Base MSRP": 0, "Legislative District": 8, "DOL Vehicle ID": "456789012", "Vehicle Location": "POINT (-119.1005655 46.2395793)", "Electric Utility": "PACIFICORP||FRANKLIN PUD", "2020 Census Tract": "53021030200"}'
+    '''
     db_path = os.path.join('database', db)
-    if not os.path.exists(db_path):
-        click.echo("Database does not exist.")
-        sys.exit(1)
+    table_path = os.path.join(db_path, table)
 
-    table_path_csv = os.path.join(db_path, f"{table}.csv")
-
-    if not os.path.exists(table_path_csv):
+    if not os.path.exists(table_path):
         click.echo("Table does not exist.")
         sys.exit(1)
 
@@ -38,74 +42,32 @@ def ins_cval(db, table, values):
         click.echo("Invalid JSON string.")
         sys.exit(1)
 
-    # opening the the table file
-    with open(table_path_csv, 'r+', newline='') as csvfile:
-        # the reader will serve as a iterator and read one line at a time
-        reader = csv.DictReader(csvfile)
-        existing_fieldnames = reader.fieldnames or []
+    last_chunk_file, chunk_number = get_last_chunk_file(table_path, 'chunk_')
+    last_chunk_file_path = os.path.join(
+        table_path, last_chunk_file) if last_chunk_file else None
 
-        # checking for new columns
-        new_columns = set(values_dict.keys()) - set(existing_fieldnames)
-        if not new_columns:
-            writer = csv.DictWriter(csvfile, fieldnames=existing_fieldnames)
-            new_row = {field: values_dict.get(
-                field, 'NA') for field in existing_fieldnames}
-            writer.writerow(new_row)
-        else:
-            # iterating over rows and process the data to add the na
-            csvfile.seek(0)
-            all_fieldnames = existing_fieldnames + list(new_columns)
+    if last_chunk_file_path and os.path.getsize(last_chunk_file_path) < chunk_size:
+        output_file_path = last_chunk_file_path
+    else:
+        chunk_number += 1
+        output_file_path = os.path.join(
+            table_path, f'chunk_{chunk_number}.csv')
 
-            temp_table_path_csv = os.path.join(db_path, f"{table}_temp.csv")
-            with open(temp_table_path_csv, 'w', newline='') as temp_csvfile:
-                writer = csv.DictWriter(
-                    temp_csvfile, fieldnames=all_fieldnames)
-                writer.writeheader()
+    with open(output_file_path, 'a', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=values_dict.keys())
+        if csvfile.tell() == 0:
+            writer.writeheader()
+        writer.writerow(values_dict)
 
-                for row in reader:
-                    # update new column with NA
-                    row.update(
-                        {new_column: 'NA' for new_column in new_columns})
-                    writer.writerow(row)
-
-                new_row = {
-                    **{field: 'NA' for field in existing_fieldnames}, **values_dict}
-                writer.writerow(new_row)
-
-            # Replace the old file with the updated temp file
-            os.replace(temp_table_path_csv, table_path_csv)
-
-    click.echo("Values inserted successfully!")
+    click.echo(f"Values inserted successfully into {output_file_path}")
 
 
-@click.command()
-@click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
-@click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
-@click.option("--conditions", prompt="Enter the deletion conditions as a JSON string", help="The conditions for row deletion", required=True)
-def del_rows(db, table, conditions):
-    """
-    Delete rows from a CSV table in the specified database based on given conditions.
-    python3 main.py del-rows --db=test --table=t2 --conditions='{"column3": "value10", "column4": "value20"}'
-    e.g. --conditions {"column1": "value1", "column2": "value2"}
-    """
-    db_path = os.path.join('database', db)
-    if not os.path.exists(db_path):
-        click.echo("Database does not exist.")
-        sys.exit(1)
+def get_chunk_files(table_path):
+    return [f for f in os.listdir(table_path) if f.startswith('chunk_') and f.endswith('.csv')]
 
-    table_path_csv = os.path.join(db_path, f"{table}.csv")
-    if not os.path.exists(table_path_csv):
-        click.echo("Table does not exist.")
-        sys.exit(1)
 
-    try:
-        conditions_dict = json.loads(conditions)
-    except json.JSONDecodeError:
-        click.echo("Invalid JSON string.")
-        sys.exit(1)
-
-    temp_table_path_csv = os.path.join(db_path, f"{table}_temp.csv")
-    with open(table_path_csv, 'r', newline='') as csvfile, open(temp_table_path_csv, 'w', newline='') as temp_csvfile:
+def del_rows_in_chunk(input_file, conditions_dict, output_file):
+    with open(input_file, 'r', newline='') as csvfile, open(output_file, 'w', newline='') as temp_csvfile:
         reader = csv.DictReader(csvfile)
         writer = csv.DictWriter(temp_csvfile, fieldnames=reader.fieldnames)
         writer.writeheader()
@@ -114,70 +76,19 @@ def del_rows(db, table, conditions):
             if not all(row[key] == value for key, value in conditions_dict.items()):
                 writer.writerow(row)
 
-    os.replace(temp_table_path_csv, table_path_csv)
-    click.echo("Rows deleted successfully.")
-
 
 @click.command()
 @click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
 @click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
-@click.option("--columns", prompt="Enter the columns to select as a comma-separated list (leave empty to select all)", default='', help="The columns to project", required=False)
-@click.option("--save", prompt="Save the output to a file? (yes/no)", default='no', help="Whether to save the output to a file", required=False)
-def project_col(db, table, columns, save):
-    """
-    Project specified columns from a CSV table in the specified database.
-    --columns Column1,Column2,...
-
-    """
+@click.option("--conditions", prompt="Enter the deletion conditions as a JSON string", help="The conditions for row deletion", required=True)
+def del_rows(db, table, conditions):
+    '''
+    python3 main.py del-rows --db=ev --table=ev_data --conditions='{"Make": "TESLA"}'
+    '''
     db_path = os.path.join('database', db)
-    table_path_csv = os.path.join(db_path, f"{table}.csv")
+    table_path = os.path.join(db_path, table)
 
-    if not os.path.exists(db_path) or not os.path.exists(table_path_csv):
-        click.echo("Database or table does not exist.")
-        sys.exit(1)
-
-    selected_columns = [col.strip()
-                        for col in columns.split(',')] if columns else None
-
-    output_path = os.path.join(
-        db_path, table + "_project_temp" + ".csv") if save.lower() == 'yes' else None
-    with open(table_path_csv, 'r', newline='') as csvfile, \
-            open(output_path, 'w', newline='') if output_path else sys.stdout as output:
-
-        reader = csv.DictReader(csvfile)
-        writer = csv.DictWriter(
-            output, fieldnames=selected_columns or reader.fieldnames, extrasaction='ignore')
-
-        if not selected_columns or all(col in reader.fieldnames for col in selected_columns):
-            writer.writeheader()
-            for row in reader:
-                writer.writerow(row)
-        else:
-            click.echo(
-                "One or more selected columns do not exist in the table.")
-
-    if save.lower() == 'yes':
-        click.echo(f"Projected data saved to {output_path}")
-
-
-# update
-@click.command()
-@click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
-@click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
-@click.option("--conditions", prompt="Enter the udpate conditions as a JSON string", help="The conditions for row update", required=True)
-def update_rows(db, table, conditions):
-    """
-    Delete rows from a CSV table in the specified database based on given conditions.
-    e.g. --conditions {"column1": {"originalvalue":"newvalue"},"column2":{"originalvalue":"newvalue"}}
-    python3 main.py update-rows --db=test --table=t2 --conditions='{"column1": {"originalvalue":"newvalue"},"column2":{"originalvalue":"newvalue"}}'
-    """
-    db_path = os.path.join('database', db)
-    if not os.path.exists(db_path):
-        click.echo("Database does not exist.")
-        sys.exit(1)
-
-    table_path_csv = os.path.join(db_path, f"{table}.csv")
-    if not os.path.exists(table_path_csv):
+    if not os.path.exists(table_path):
         click.echo("Table does not exist.")
         sys.exit(1)
 
@@ -187,8 +98,76 @@ def update_rows(db, table, conditions):
         click.echo("Invalid JSON string.")
         sys.exit(1)
 
-    temp_table_path_csv = os.path.join(db_path, f"{table}_temp.csv")
-    with open(table_path_csv, 'r', newline='') as csvfile, open(temp_table_path_csv, 'w', newline='') as temp_csvfile:
+    chunk_files = get_chunk_files(table_path)
+    for chunk in chunk_files:
+        chunk_path = os.path.join(table_path, chunk)
+        temp_chunk_path = os.path.join(table_path, f"temp_{chunk}")
+        del_rows_in_chunk(chunk_path, conditions_dict, temp_chunk_path)
+        os.replace(temp_chunk_path, chunk_path)
+
+    click.echo("Rows deleted successfully in all chunks.")
+
+
+def project_columns_in_chunk(input_file, selected_columns, output):
+    with open(input_file, 'r', newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+
+        # Check if output is a file path or already a file-like object
+        if isinstance(output, str):
+            output_file = open(output, 'w', newline='')
+        else:
+            output_file = output
+
+        writer = csv.DictWriter(
+            output_file, fieldnames=selected_columns or reader.fieldnames, extrasaction='ignore')
+        writer.writeheader()
+
+        for row in reader:
+            writer.writerow({col: row[col] for col in selected_columns})
+
+        # Close the file if we opened it
+        if isinstance(output, str):
+            output_file.close()
+
+
+@click.command()
+@click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
+@click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
+@click.option("--columns", prompt="Enter the columns to select as a comma-separated list", default='', help="The columns to project", required=False)
+@click.option("--save", prompt="Save the output to a file? (yes/no)", default='no', help="Whether to save the output to a file", required=False)
+def project_col(db, table, columns, save):
+    '''
+    python3 main.py project-col --db=ev --table=ev_data --columns='Make','Model'
+    '''
+    db_path = os.path.join('database', db)
+    table_path = os.path.join(db_path, table)
+
+    if not os.path.exists(table_path):
+        click.echo("Table does not exist.")
+        sys.exit(1)
+
+    selected_columns = [col.strip()
+                        for col in columns.split(',')] if columns else None
+
+    chunk_files = get_chunk_files(table_path)
+    for chunk in chunk_files:
+        chunk_path = os.path.join(table_path, chunk)
+        output_file_path = os.path.join(
+            table_path, f"projected_{chunk}") if save.lower() == 'yes' else None
+
+        if output_file_path:
+            project_columns_in_chunk(
+                chunk_path, selected_columns, output_file_path)
+        else:
+            project_columns_in_chunk(chunk_path, selected_columns, sys.stdout)
+
+    if save.lower() == 'yes':
+        click.echo(f"Projected data saved in {table_path} directory.")
+
+
+# update
+def update_rows_in_chunk(input_file, conditions_dict, output_file):
+    with open(input_file, 'r', newline='') as csvfile, open(output_file, 'w', newline='') as temp_csvfile:
         reader = csv.DictReader(csvfile)
         writer = csv.DictWriter(temp_csvfile, fieldnames=reader.fieldnames)
         writer.writeheader()
@@ -205,8 +184,36 @@ def update_rows(db, table, conditions):
             else:
                 writer.writerow(row)
 
-    os.replace(temp_table_path_csv, table_path_csv)
-    click.echo("Rows updated successfully.")
+
+@click.command()
+@click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
+@click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
+@click.option("--conditions", prompt="Enter the update conditions as a JSON string", help="The conditions for row update", required=True)
+def update_rows(db, table, conditions):
+    '''
+    python3 main.py update-rows --db=ev --table=ev_data --conditions='{"Make": {"originalvalue":"TOYOTA","newvalue":"TESLA"}}'
+    '''
+    db_path = os.path.join('database', db)
+    table_path = os.path.join(db_path, table)
+
+    if not os.path.exists(table_path):
+        click.echo("Table does not exist.")
+        sys.exit(1)
+
+    try:
+        conditions_dict = json.loads(conditions)
+    except json.JSONDecodeError:
+        click.echo("Invalid JSON string.")
+        sys.exit(1)
+
+    chunk_files = get_chunk_files(table_path)
+    for chunk in chunk_files:
+        chunk_path = os.path.join(table_path, chunk)
+        temp_chunk_path = os.path.join(table_path, f"temp_{chunk}")
+        update_rows_in_chunk(chunk_path, conditions_dict, temp_chunk_path)
+        os.replace(temp_chunk_path, chunk_path)
+
+    click.echo("Rows updated successfully in all chunks.")
 
     # Define comparison operators
 operators = {
@@ -232,24 +239,43 @@ def evaluate_condition(row_value, condition):
 # filter
 
 
+def filter_rows_in_chunk(input_file, conditions_dict, output):
+    with open(input_file, 'r', newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+
+        if isinstance(output, str):
+            output_file = open(output, 'w', newline='')
+            writer = csv.DictWriter(
+                output_file, fieldnames=reader.fieldnames, extrasaction='ignore')
+            writer.writeheader()
+        else:
+            writer = csv.DictWriter(
+                output, fieldnames=reader.fieldnames, extrasaction='ignore')
+            if output == sys.stdout:
+                writer.writeheader()
+
+        for row in reader:
+            if all(evaluate_condition(row[key], cond) for key, cond in conditions_dict.items() if key in row):
+                writer.writerow(row)
+
+        if isinstance(output, str):
+            output_file.close()
+
+
 @click.command()
 @click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
 @click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
 @click.option("--conditions", prompt="Enter the update conditions as a JSON string", help="The conditions for row update", required=True)
 @click.option("--save", prompt="Save the output to a file? (yes/no)", default='no', help="Whether to save the output to a file", required=False)
 def filter_tb(db, table, conditions, save):
-    """
-    Filter rows from a CSV table in the specified database based on given conditions.
-    e.g. --conditions '{"column_name": {"operator": ">", "value": 100}}'
-    --save yes
-    """
+    '''
+    python3 main.py filter-tb --db=ev --table=ev_data --conditions '{"Make": {"operator": "eq", "value": "TESLA"}}'
+    '''
     db_path = os.path.join('database', db)
-    if not os.path.exists(db_path):
-        click.echo("Database does not exist.")
-        sys.exit(1)
+    table_path = os.path.join(db_path, table)
 
-    table_path_csv = os.path.join(db_path, f"{table}.csv")
-    if not os.path.exists(table_path_csv):
+    if not os.path.exists(table_path):
+        print(table_path)
         click.echo("Table does not exist.")
         sys.exit(1)
 
@@ -259,24 +285,16 @@ def filter_tb(db, table, conditions, save):
         click.echo("Invalid JSON string.")
         sys.exit(1)
 
-    output_path = os.path.join(
-        db_path, table + "_filter_temp" + ".csv") if save.lower() == 'yes' else None
-    with open(table_path_csv, 'r', newline='') as csvfile, \
-            open(output_path, 'w', newline='') if output_path else sys.stdout as output:
+    chunk_files = get_chunk_files(table_path)
+    for chunk in chunk_files:
+        chunk_path = os.path.join(table_path, chunk)
+        output_file_path = os.path.join(
+            table_path, f"filtered_{chunk}") if save.lower() == 'yes' else sys.stdout
 
-        reader = csv.DictReader(csvfile)
-        writer = csv.DictWriter(
-            output, fieldnames=reader.fieldnames, extrasaction='ignore')
-        if output_path:
-            writer.writeheader()
-
-        for row in reader:
-            if all(evaluate_condition(row[key], cond)
-                   for key, cond in conditions_dict.items() if key in row):
-                writer.writerow(row)
+        filter_rows_in_chunk(chunk_path, conditions_dict, output_file_path)
 
     if save.lower() == 'yes':
-        click.echo(f"Filtered data saved to {output_path}")
+        click.echo(f"Filtered data saved in {table_path} directory.")
 
 
 ASCEDNING_OPTION = {
@@ -295,36 +313,35 @@ ASCEDNING_OPTION = {
 @click.option("--table", prompt="Enter the name of the table", help="The name of the table", required=True)
 @click.option("--column", prompt="Enter the column to order by", help="The column to order by", required=True)
 @click.option("--ascending", prompt="Ascending (T/F)", default='T', help="Sorting method", required=False)
-def order_tb(db, table, column, ascending):
-    """
-    Order a CSV table by column using external sorting.
-    e.g. python3 main.py order-tb --db ev --table ev_data --column "2020 Census Tract" --ascending F
-    """
-    # checking validity of the database
+@click.option("--save", prompt="Save the output to a file? (yes/no)", default='no', help="Whether to save the output to a file", required=False)
+def order_tb(db, table, column, ascending, save):
     db_path = os.path.join('database', db)
-    if not os.path.exists(db_path):
-        click.echo("Database does not exist.")
-        sys.exit(1)
+    table_path = os.path.join(db_path, table)
 
-    # checking validity of the table
-    table_path_csv = os.path.join(db_path, f"{table}.csv")
-    if not os.path.exists(table_path_csv):
+    if not os.path.exists(table_path):
         click.echo("Table does not exist.")
         sys.exit(1)
 
-    # checking existence of column for ordering
-    if not column:
-        click.echo("No column specified for ordering.")
-        sys.exit(1)
+    reverse = not ASCEDNING_OPTION[ascending]
+    final_sorted_chunks = []
+    chunk_files = get_chunk_files(table_path)
 
-    # perform sort
-    try:
+    for chunk in chunk_files:
+        chunk_path = os.path.join(table_path, chunk)
+        sorted_chunk = sort_and_merge_chunk(chunk_path, column, reverse)
+        final_sorted_chunks.append(sorted_chunk)
 
-        external_sort(table_path_csv, column, ASCEDNING_OPTION[ascending])
-        click.echo(f"Table {table} ordered by column {column} successfully.")
-    except Exception as e:
-        click.echo(f"Error: {e}")
-        sys.exit(1)
+    if save.lower() == 'yes':
+        final_output_file = os.path.join(table_path, f"{table}_sorted.csv")
+        merge_chunks(final_sorted_chunks, final_output_file, column)
+        click.echo(f"Sorted data saved to {final_output_file}")
+    else:
+        for sorted_chunk in final_sorted_chunks:
+            with open(sorted_chunk, 'r', newline='') as csvfile:
+                reader = csv.reader(csvfile)
+                for row in reader:
+                    print(','.join(row))
+            os.remove(sorted_chunk)
 
 
 def external_sort(filename, column, reverse):
@@ -364,11 +381,21 @@ def break_into_sorted_chunks(filename, column, reverse):
     return chunk_files
 
 
+def sort_chunk(input_file, column, reverse):
+    sorted_file_path = input_file + "_sorted.csv"
+    with open(input_file, 'r', newline='') as file, open(sorted_file_path, 'w', newline='') as outfile:
+        reader = csv.DictReader(file)
+        writer = csv.DictWriter(outfile, fieldnames=reader.fieldnames)
+        writer.writeheader()
+        sorted_rows = sorted(
+            reader, key=lambda row: row[column], reverse=reverse)
+        writer.writerows(sorted_rows)
+    return sorted_file_path
+
+
 def merge_chunks(chunk_files, output_file, column):
-    '''
-    merging the temporary sorted files
-    '''
     with open(output_file, 'w', newline='') as file:
+        # Open the files and create DictReader objects
         files = [open(chunk_file, 'r', newline='')
                  for chunk_file in chunk_files]
         readers = [csv.DictReader(f) for f in files]
@@ -376,13 +403,46 @@ def merge_chunks(chunk_files, output_file, column):
         writer = csv.DictWriter(file, fieldnames=readers[0].fieldnames)
         writer.writeheader()
 
+        # Merge using heapq.merge, which is efficient and handles large data
         merged = heapq.merge(*readers, key=lambda x: x[column])
         for row in merged:
             writer.writerow(row)
 
+        # Close all the file objects
         for f in files:
             f.close()
-            os.remove(f.name)
+
+
+def sort_and_merge_chunk(chunk_file, column, reverse):
+    sorted_sub_chunk_files = break_into_sorted_chunks(
+        chunk_file, column, reverse)
+    merged_chunk_file = chunk_file + "_sorted.csv"
+    merge_chunks(sorted_sub_chunk_files, merged_chunk_file, column)
+    return merged_chunk_file
+
+
+def group_and_aggregate_chunk(chunk_file, group_column, agg):
+    group_data = defaultdict(lambda: defaultdict(list))
+    with open(chunk_file, 'r', newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            try:
+                value = float(row[group_column])
+                group_data[row[group_column]][group_column].append(value)
+            except ValueError:
+                if agg == "count":
+                    group_data[row[group_column]][group_column].append(
+                        1)  # For count, just add 1
+    return group_data
+
+
+def merge_group_data(all_group_data):
+    merged_data = defaultdict(lambda: defaultdict(list))
+    for group_data in all_group_data:
+        for group, values in group_data.items():
+            for col, vals in values.items():
+                merged_data[group][col].extend(vals)
+    return merged_data
 
 
 @click.command()
@@ -393,16 +453,39 @@ def merge_chunks(chunk_files, output_file, column):
 @click.option("--save", prompt="Save the output to a file? (yes/no)", default='no', help="Whether to save the output to a file", required=False)
 def groupby(db, table, column, agg, save):
     db_path = os.path.join('database', db)
-    table_path_csv = os.path.join(db_path, f"{table}.csv")
-
-    if not os.path.exists(db_path) or not os.path.exists(table_path_csv):
-        click.echo("Database or table does not exist.")
+    '''
+    
+    '''
+    if not os.path.exists(db_path):
+        click.echo("Database does not exist.")
         sys.exit(1)
 
-    results = perform_groupby(table_path_csv, column, agg, None)
+    table_path = os.path.join(db_path, table)
+    if not os.path.exists(table_path):
+        click.echo("Table does not exist.")
+        sys.exit(1)
+
+    chunk_files = get_chunk_files(table_path)
+    if not chunk_files:
+        click.echo("No chunk files found in the specified table.")
+        sys.exit(1)
+
+    db_path = os.path.join('database', db)
+    table_path = os.path.join(db_path, table)
+    all_group_data = []
+
+    chunk_files = get_chunk_files(table_path)
+    for chunk in chunk_files:
+        chunk_path = os.path.join(table_path, chunk)
+        group_data = group_and_aggregate_chunk(chunk_path, column, agg)
+        all_group_data.append(group_data)
+
+    merged_group_data = merge_group_data(all_group_data)
+    final_results = {group: aggregate(vals, agg)
+                     for group, vals in merged_group_data.items()}
 
     fieldnames = ['Group'] + \
-        list(set(k for v in results.values() for k in v.keys()))
+        list(set(k for v in final_results.values() for k in v.keys()))
 
     if save.lower() == 'yes':
         output_path = os.path.join(db_path, table + "_groupby_temp.csv")
@@ -410,7 +493,7 @@ def groupby(db, table, column, agg, save):
             writer = csv.DictWriter(output, fieldnames=fieldnames)
             writer.writeheader()
 
-            for key, value in results.items():
+            for key, value in final_results.items():
                 row = {'Group': key, **value}
                 writer.writerow(row)
 
@@ -419,7 +502,7 @@ def groupby(db, table, column, agg, save):
         writer = csv.DictWriter(
             sys.stdout, fieldnames=fieldnames, extrasaction='ignore')
         writer.writeheader()
-        for key, value in results.items():
+        for key, value in final_results.items():
             row = {'Group': key, **value}
             writer.writerow(row)
 
@@ -494,6 +577,12 @@ def sort_merge_join(left_file, right_file, left_column, right_column):
         return result
 
 
+def process_chunk_pair(left_chunk, right_chunk, left_column, right_column):
+    sorted_left = external_sort_join(left_chunk, left_column)
+    sorted_right = external_sort_join(right_chunk, right_column)
+    return sort_merge_join(sorted_left, sorted_right, left_column, right_column)
+
+
 @click.command()
 @click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
 @click.option("--tbl1", prompt="Enter the name of the (left) table to join", help="The name of the table", required=True)
@@ -501,28 +590,31 @@ def sort_merge_join(left_file, right_file, left_column, right_column):
 @click.option("--column", prompt="Enter the column to join on", help="The column to join on")
 def join_tb(db, tbl1, tbl2, column):
     '''
-    python3 main.py join-tb --db=ev --tbl1=ev_data_small --tbl2=emission_standards --column='Model Year','Model Year'
+    python3 main.py join-tb --db=ev --tbl1=ev_data --tbl2=emission_standards --column='Model Year','Model Year'
     '''
     db_path = os.path.join('database', db)
-    left_table = os.path.join(db_path, f"{tbl1}.csv")
-    right_table = os.path.join(db_path, f"{tbl2}.csv")
+    left_table_path = os.path.join(db_path, tbl1)
+    right_table_path = os.path.join(db_path, tbl2)
     left_column, right_column = column.split(',')
 
-    if not all(os.path.exists(table) for table in [left_table, right_table]):
-        click.echo("One or both tables do not exist.")
+    left_chunks = get_chunk_files(left_table_path)
+    right_chunks = get_chunk_files(right_table_path)
+
+    if not (left_chunks and right_chunks):
+        click.echo("One or both tables do not have chunk files.")
         return
 
-    # external sort
-    sorted_left = external_sort_join(left_table, left_column)
-    sorted_right = external_sort_join(right_table, right_column)
+    # Assuming each table has an equal number of chunks,
+    # or logic needs to be adjusted for unequal chunk counts
+    for left_chunk, right_chunk in zip(left_chunks, right_chunks):
+        left_chunk_path = os.path.join(left_table_path, left_chunk)
+        right_chunk_path = os.path.join(right_table_path, right_chunk)
 
-    # sort-merge join
-    joined_data = sort_merge_join(
-        sorted_left, sorted_right, left_column, right_column)
+        joined_data = process_chunk_pair(
+            left_chunk_path, right_chunk_path, left_column, right_column)
+        for row in joined_data:
+            click.echo(row)
 
-    # show
-    for row in joined_data:
-        click.echo(row)
 
 # =======================================================
 

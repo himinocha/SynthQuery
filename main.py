@@ -4,6 +4,7 @@ import sys
 import csv_file as cf
 import json_file as jf
 import shutil
+import csv
 
 
 @click.group()
@@ -88,6 +89,34 @@ cli.add_command(jf.join_jval)
 cli.add_command(jf.select_jval)
 
 
-if __name__ == '__main__':
+def split_chunks(input_file, output_dir, chunk_size=5000):
+    # Ensure the output directory exists
+    os.makedirs(output_dir, exist_ok=True)
 
+    with open(input_file, 'r', newline='') as file:
+        reader = csv.DictReader(file)
+        headers = reader.fieldnames
+
+        chunk = []
+        for i, row in enumerate(reader, 1):
+            chunk.append(row)
+            if i % chunk_size == 0:
+                write_chunk(chunk, headers, output_dir, i // chunk_size)
+                chunk = []
+        if chunk:
+            write_chunk(chunk, headers, output_dir, (i // chunk_size) + 1)
+
+
+def write_chunk(chunk, headers, output_dir, chunk_number):
+    output_file = os.path.join(output_dir, f'chunk_{chunk_number}.csv')
+    with open(output_file, 'w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=headers)
+        writer.writeheader()
+        writer.writerows(chunk)
+
+
+if __name__ == '__main__':
+    # input_file = '/Users/shawnpan/Downloads/ev_data.csv'
+    # output_dir = 'database/ev/ev_data'
+    # split_chunks(input_file, output_dir, chunk_size=5000)
     cli()
