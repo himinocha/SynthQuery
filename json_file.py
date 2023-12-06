@@ -224,7 +224,6 @@ def project_col_jval(db, table, columns):
 
                 click.echo("Empty JSON file...")
     else:
-        col_list = []
         for file_name in sorted(os.listdir(split_path)):
             click.echo(f"####{file_name}####")
             if file_name.endswith('.json'):
@@ -232,6 +231,7 @@ def project_col_jval(db, table, columns):
                     try:
                         data = json.load(jsonfile)
                         # Access all columns
+                        col_list = []
                         for record in data:
                             for key, value in record.items():
                                 if len(columns) == 0:
@@ -449,7 +449,6 @@ def order_jval(db, table, fields):
                 sys.exit(1)
     else:
         for file_name in sorted(os.listdir(split_path)):
-            click.echo(f"####{file_name}####")
             if file_name.endswith('.json'):
                 with open(os.path.join(split_path, file_name), 'r') as jsonfile:
                     try:
@@ -515,7 +514,6 @@ def group_by_jval(db, table, field):
                 sys.exit(1)
     else:
         for file_name in sorted(os.listdir(split_path)):
-            click.echo(f"####{file_name}####")
             if file_name.endswith('.json'):
                 with open(os.path.join(split_path, file_name), 'r') as jsonfile:
                     try:
@@ -590,7 +588,7 @@ def join_jval(db, table1, table2, join_field):
     else:
         for file_name in sorted(os.listdir(split_path1)):
             for file_name2 in sorted(os.listdir(split_path2)):
-                if file_name.endswith('.json'):
+                if file_name.endswith('.json') and file_name2.endswith('.json'):
                     with open(os.path.join(split_path1, file_name), 'r') as jsonfile1, open(os.path.join(split_path2, file_name2), 'r') as jsonfile2:
                         try:
                             data1 = json.load(jsonfile1)
@@ -618,8 +616,8 @@ def filter_data(data, criteria):
             if 'operation' in condition and 'value' in condition:
                 operation = condition['operation']
                 value = condition['value']
+                
                 # convert str to float if possible
-
                 if isinstance(value, str) and value.isdigit():
                     value = float(value)
                     comp_val = float(record.get(field, 0))
