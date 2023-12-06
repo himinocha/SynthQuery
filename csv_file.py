@@ -315,6 +315,9 @@ ASCEDNING_OPTION = {
 @click.option("--ascending", prompt="Ascending (T/F)", default='T', help="Sorting method", required=False)
 @click.option("--save", prompt="Save the output to a file? (yes/no)", default='no', help="Whether to save the output to a file", required=False)
 def order_tb(db, table, column, ascending, save):
+    '''
+    python3 main.py order-tb --db=ev --table=ev_data --column="2020 Census Tract" --ascending=F
+    '''
     db_path = os.path.join('database', db)
     table_path = os.path.join(db_path, table)
 
@@ -395,7 +398,6 @@ def sort_chunk(input_file, column, reverse):
 
 def merge_chunks(chunk_files, output_file, column):
     with open(output_file, 'w', newline='') as file:
-        # Open the files and create DictReader objects
         files = [open(chunk_file, 'r', newline='')
                  for chunk_file in chunk_files]
         readers = [csv.DictReader(f) for f in files]
@@ -403,7 +405,6 @@ def merge_chunks(chunk_files, output_file, column):
         writer = csv.DictWriter(file, fieldnames=readers[0].fieldnames)
         writer.writeheader()
 
-        # Merge using heapq.merge, which is efficient and handles large data
         merged = heapq.merge(*readers, key=lambda x: x[column])
         for row in merged:
             writer.writerow(row)
@@ -454,7 +455,7 @@ def merge_group_data(all_group_data):
 def groupby(db, table, column, agg, save):
     db_path = os.path.join('database', db)
     '''
-    
+    python3 main.py groupby --db ev --table ev_data --column Make --agg count
     '''
     if not os.path.exists(db_path):
         click.echo("Database does not exist.")
