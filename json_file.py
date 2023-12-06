@@ -4,6 +4,55 @@ import sys
 import json
 from collections import defaultdict
 
+def split_json_file(db, table, max_size_mb=3):
+    """Split a JSON file into multiple smaller files if it exceeds a specified size."""
+    
+    db_path = os.path.join('database', db)
+    if not os.path.exists(db_path):
+        click.echo("Database does not exist.")
+        sys.exit(1)
+
+    table_path_json = os.path.join(db_path, f"{table}")
+    if not os.path.exists(table_path_json):
+        print(f"File {table_path_json} does not exist.")
+        os.makedirs(table_path_json)
+    
+    path_json = os.path.join(table_path_json, f"{table}.json")
+
+    file_size_mb = os.path.getsize(path_json) / (1024 * 1024)
+    if file_size_mb <= max_size_mb:
+        print("File size is within the limit. No need to split.")
+        return path_json
+    
+    output_dir = os.path.join(table_path_json, 'split_json')
+    if os.path.exists(output_dir):
+        return output_dir
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    with open(path_json, 'r') as file:
+        data = json.load(file)
+
+    part = 0
+    current_size = 0
+    current_data = []
+    for item in data:
+        current_data.append(item)
+        current_size += len(json.dumps(item))
+        if current_size >= max_size_mb * 1024 * 1024:
+            with open(os.path.join(output_dir, f'part_{part}.json'), 'w') as f:
+                json.dump(current_data, f)
+            part += 1
+            current_data = []
+            current_size = 0
+
+    if current_data:
+        with open(os.path.join(output_dir, f'part_{part}.json'), 'w') as f:
+            json.dump(current_data, f)
+
+    print(f"JSON file split into {part + 1} parts.")
+    return output_dir
 
 @click.command()
 @click.option("--db", prompt="Enter the name of the database", help="The name of the database", required=True)
@@ -20,19 +69,20 @@ def ins_jval(db, table, values):
         sys.exit(1)
 
     table_path_json = os.path.join(db_path, f"{table}.json")
-
-    if os.path.exists(table_path_json):
-        try:
-            values_list = json.loads(values)
-        except json.JSONDecodeError:
-            click.echo("Invalid JSON string.")
-            sys.exit(1)
-
-        if not isinstance(values_list, list):
+    split_path = split_json_file(db, table)
+    
+    try:
+        values_list = json.loads(values)
+    except json.JSONDecodeError:
+        click.echo("Invalid JSON string.")
+        sys.exit(1)
+    
+    if not isinstance(values_list, list):
             click.echo("Values must be a list for a JSON file.")
             sys.exit(1)
 
-        with open(table_path_json, 'r+') as jsonfile:
+    if split_path.endswith('.json'):
+        with open(split_path, 'r+') as jsonfile:
             try:
                 existing_data = json.load(jsonfile)
                 if not isinstance(existing_data, list):
@@ -57,8 +107,36 @@ def ins_jval(db, table, values):
                 json.dump(values_list, jsonfile, indent=4)
         click.echo("Values inserted successfully!")
     else:
-        click.echo("Table does not exist.")
-        sys.exit(1)
+        for file_name in sorted(os.listdir(split_path)):
+            click.echo(f"####{file_name}####")
+            if file_name.endswith('.json'):
+                with open(os.path.join(split_path, file_name), 'r') as jsonfile:
+                    try:
+                        existing_data = json.load(jsonfile)
+                        if not isinstance(existing_data, list):
+                            click.echo("Invalid table format.")
+                            sys.exit(1)
+                        # Generate new IDs
+                        last_id = max((record.get('id', 0)
+                                    for record in existing_data), default=0)
+                        for record in values_list:
+                            last_id += 1
+                            record['id'] = last_id
+                        existing_data.extend(values_list)
+                        jsonfile.seek(0)
+                        jsonfile.truncate()
+                        json.dump(existing_data, jsonfile, indent=4)
+                    except json.JSONDecodeError:
+                        click.echo("Empty JSON file, inserting values...")
+                        # Assign IDs for the first set of records
+                        for i, record in enumerate(values_list, start=1):
+                            record['id'] = i
+                        jsonfile.seek(0)
+                        json.dump(values_list, jsonfile, indent=4)
+                click.echo("Values inserted successfully!")
+            else:
+                click.echo("Table does not exist.")
+                sys.exit(1)
 
 
 @click.command()
@@ -68,7 +146,7 @@ def ins_jval(db, table, values):
 def del_rows_jval(db, table, conditions):
     """
     Delete rows from a JSON table in the specified database based on given conditions.
-    e.g. python main.py del-rows --db=test-db --table=t --conditions '{"column1": "value1", "column2": "value2"}'
+    e.g. python main.py del-rows-jval --db=test-db --table=t --conditions '{"column1": "value1", "column2": "value2"}'
     """
     db_path = os.path.join('database', db)
     if not os.path.exists(db_path):
@@ -76,27 +154,38 @@ def del_rows_jval(db, table, conditions):
         sys.exit(1)
 
     table_path_json = os.path.join(db_path, f"{table}.json")
-    if not os.path.exists(table_path_json):
-        click.echo("Table does not exist.")
-        sys.exit(1)
+    split_path = split_json_file(db, table)
 
     try:
         conditions_dict = json.loads(conditions)
     except json.JSONDecodeError:
         click.echo("Invalid JSON string.")
         sys.exit(1)
+    if split_path.endswith('.json'):
+        with open(split_path, 'r') as jsonfile:
+            data = json.load(jsonfile)
 
-    with open(table_path_json, 'r') as jsonfile:
-        data = json.load(jsonfile)
+        # Filtering rows that do not meet the conditions
+        filtered_data = [row for row in data if not all(
+            row.get(key) == value for key, value in conditions_dict.items())]
 
-    # Filtering rows that do not meet the conditions
-    filtered_data = [row for row in data if not all(
-        row.get(key) == value for key, value in conditions_dict.items())]
+        # Writing the updated data back to the JSON file
+        with open(split_path, 'w') as jsonfile:
+            json.dump(filtered_data, jsonfile, indent=4)
+    else:
+         for file_name in sorted(os.listdir(split_path)):
+            click.echo(f"####{file_name}####")
+            if file_name.endswith('.json'):
+                with open(os.path.join(split_path, file_name), 'r') as jsonfile:
+                    data = json.load(jsonfile)
 
-    # Writing the updated data back to the JSON file
-    with open(table_path_json, 'w') as jsonfile:
-        json.dump(filtered_data, jsonfile, indent=4)
+                # Filtering rows that do not meet the conditions
+                filtered_data = [row for row in data if not all(
+                    row.get(key) == value for key, value in conditions_dict.items())]
 
+                # Writing the updated data back to the JSON file
+                with open(split_path, 'w') as jsonfile:
+                    json.dump(filtered_data, jsonfile, indent=4)
     click.echo("Rows deleted successfully.")
 
 
@@ -107,34 +196,53 @@ def del_rows_jval(db, table, conditions):
 def project_col_jval(db, table, columns):
     """
     Project specified columns from a JSON table in the specified database.
-    e.g. python main.py project-col --db=test-db --table=t --columns=column1
+    e.g. python main.py project-col-jval --db=test-db --table=t --columns=column1
     """
     db_path = os.path.join('database', db)
     if not os.path.exists(db_path):
         click.echo("Database does not exist.")
         sys.exit(1)
-
+    
     table_path_json = os.path.join(db_path, f"{table}.json")
-    if not os.path.exists(table_path_json):
-        click.echo("Table does not exist.")
-        sys.exit(1)
+    split_path = split_json_file(db, table)
+    
+    if split_path.endswith('.json'):
+        with open(split_path, 'r+') as jsonfile:
+            try:
+                data = json.load(jsonfile)
+                # Access all columns
+                col_list = []
+                for record in data:
+                    for key, value in record.items():
+                        if len(columns) == 0:
+                            print(data)
+                            break
+                        elif key in columns:
+                            col_list.append({key: value})
+                click.echo(json.dumps(col_list, indent=4))
+            except json.JSONDecodeError:
 
-    with open(table_path_json, 'r+') as jsonfile:
-        try:
-            data = json.load(jsonfile)
-            # Access all columns
-            col_list = []
-            for record in data:
-                for key, value in record.items():
-                    if len(columns) == 0:
-                        print(data)
-                        break
-                    elif key in columns:
-                        col_list.append({key: value})
-            click.echo(json.dumps(col_list, indent=4))
-        except json.JSONDecodeError:
+                click.echo("Empty JSON file...")
+    else:
+        col_list = []
+        for file_name in sorted(os.listdir(split_path)):
+            click.echo(f"####{file_name}####")
+            if file_name.endswith('.json'):
+                with open(os.path.join(split_path, file_name), 'r') as jsonfile:
+                    try:
+                        data = json.load(jsonfile)
+                        # Access all columns
+                        for record in data:
+                            for key, value in record.items():
+                                if len(columns) == 0:
+                                    print(data)
+                                    break
+                                elif key in columns:
+                                    col_list.append({key: value})
+                        click.echo(json.dumps(col_list, indent=4))
+                    except json.JSONDecodeError:
 
-            click.echo("Empty JSON file...")
+                        click.echo("Empty JSON file...")
 
 
 def update_record(data, record_id, new_values):
@@ -163,36 +271,63 @@ def update_jval(db, table, record_id, new_values):
     if not os.path.exists(db_path):
         click.echo("Database does not exist.")
         sys.exit(1)
-
+    
     table_path_json = os.path.join(db_path, f"{table}.json")
-    if not os.path.exists(table_path_json):
-        click.echo("Table does not exist.")
-        sys.exit(1)
+    split_path = split_json_file(db, table)
 
-    with open(table_path_json, 'r+') as jsonfile:
-        try:
-            data = json.load(jsonfile)
-            if not isinstance(data, list):
-                click.echo("Invalid table format.")
-                sys.exit(1)
-
+    if split_path.endswith('.json'):
+        with open(split_path, 'r+') as jsonfile:
             try:
-                record_id = int(record_id)
-                new_values = json.loads(new_values)
-            except (ValueError, json.JSONDecodeError):
-                click.echo("Invalid record ID or JSON format for new values.")
-                sys.exit(1)
+                data = json.load(jsonfile)
+                if not isinstance(data, list):
+                    click.echo("Invalid table format.")
+                    sys.exit(1)
 
-            if update_record(data, record_id, new_values):
-                jsonfile.seek(0)
-                jsonfile.truncate()
-                json.dump(data, jsonfile, indent=4)
-                click.echo("Record updated successfully.")
-            else:
-                click.echo("No matching record found to update.")
-        except json.JSONDecodeError:
-            click.echo("Invalid JSON file.")
-            sys.exit(1)
+                try:
+                    record_id = int(record_id)
+                    new_values = json.loads(new_values)
+                except (ValueError, json.JSONDecodeError):
+                    click.echo("Invalid record ID or JSON format for new values.")
+                    sys.exit(1)
+
+                if update_record(data, record_id, new_values):
+                    jsonfile.seek(0)
+                    jsonfile.truncate()
+                    json.dump(data, jsonfile, indent=4)
+                    click.echo("Record updated successfully.")
+                else:
+                    click.echo("No matching record found to update.")
+            except json.JSONDecodeError:
+                click.echo("Invalid JSON file.")
+                sys.exit(1)
+    else:
+        for file_name in sorted(os.listdir(split_path)):
+            click.echo(f"####{file_name}####")
+            if file_name.endswith('.json'):
+                with open(os.path.join(split_path, file_name), 'r') as jsonfile:
+                    try:
+                        data = json.load(jsonfile)
+                        if not isinstance(data, list):
+                            click.echo("Invalid table format.")
+                            sys.exit(1)
+
+                        try:
+                            record_id = int(record_id)
+                            new_values = json.loads(new_values)
+                        except (ValueError, json.JSONDecodeError):
+                            click.echo("Invalid record ID or JSON format for new values.")
+                            sys.exit(1)
+
+                        if update_record(data, record_id, new_values):
+                            jsonfile.seek(0)
+                            jsonfile.truncate()
+                            json.dump(data, jsonfile, indent=4)
+                            click.echo("Record updated successfully.")
+                        else:
+                            click.echo("No matching record found to update.")
+                    except json.JSONDecodeError:
+                        click.echo("Invalid JSON file.")
+                        sys.exit(1)
 
 
 def filter_records(data, criteria):
@@ -213,40 +348,63 @@ def filter_records(data, criteria):
 def filter_jval(db, table, criteria):
     """
     Filter records in a JSON file based on provided criteria.
-    e.g. python main.py filter-jval --db=test-db --table=t --criteria='{"column2": 3}'
+    e.g. python main.py filter-jval --db=test-db --table=t --criteria='{"column2": "3"}'
     """
     db_path = os.path.join('database', db)
     if not os.path.exists(db_path):
         click.echo("Database does not exist.")
         sys.exit(1)
-
+    
     table_path_json = os.path.join(db_path, f"{table}.json")
-    if not os.path.exists(table_path_json):
-        click.echo("Table does not exist.")
-        sys.exit(1)
-
-    with open(table_path_json, 'r') as jsonfile:
-        try:
-            data = json.load(jsonfile)
-            if not isinstance(data, list):
-                click.echo("Invalid table format.")
-                sys.exit(1)
-
+    split_path = split_json_file(db, table)
+    
+    if split_path.endswith('.json'):
+        with open(split_path, 'r') as jsonfile:
             try:
-                criteria_dict = json.loads(criteria)
+                data = json.load(jsonfile)
+                if not isinstance(data, list):
+                    click.echo("Invalid table format.")
+                    sys.exit(1)
+
+                try:
+                    criteria_dict = json.loads(criteria)
+                except json.JSONDecodeError:
+                    click.echo("Invalid JSON format for criteria.")
+                    sys.exit(1)
+
+                filtered_data = filter_records(data, criteria_dict)
+                if filtered_data:
+                    click.echo(json.dumps(filtered_data, indent=4))
+                else:
+                    click.echo("No matching records found.")
             except json.JSONDecodeError:
-                click.echo("Invalid JSON format for criteria.")
+                click.echo("Invalid JSON file.")
                 sys.exit(1)
+    else:
+        for file_name in sorted(os.listdir(split_path)):
+            click.echo(f"####{file_name}####")
+            if file_name.endswith('.json'):
+                with open(os.path.join(split_path, file_name), 'r') as jsonfile:
+                    try:
+                        data = json.load(jsonfile)
+                        if not isinstance(data, list):
+                            click.echo("Invalid table format.")
+                            sys.exit(1)
 
-            filtered_data = filter_records(data, criteria_dict)
-            if filtered_data:
-                click.echo(json.dumps(filtered_data, indent=4))
-            else:
-                click.echo("No matching records found.")
-        except json.JSONDecodeError:
-            click.echo("Invalid JSON file.")
-            sys.exit(1)
+                        try:
+                            criteria_dict = json.loads(criteria)
+                        except json.JSONDecodeError:
+                            click.echo("Invalid JSON format for criteria.")
+                            sys.exit(1)
 
+                        filtered_data = filter_records(data, criteria_dict)
+                        if filtered_data:
+                            click.echo(json.dumps(filtered_data, indent=4))
+                        else:
+                            click.echo("No matching records found.")
+                    except json.JSONDecodeError:
+                        click.echo("Invalid JSON file.")
+                        sys.exit(1)
 
 def sort_records(data, fields):
     """
@@ -270,27 +428,45 @@ def order_jval(db, table, fields):
         sys.exit(1)
 
     table_path_json = os.path.join(db_path, f"{table}.json")
-    if not os.path.exists(table_path_json):
-        click.echo("Table does not exist.")
-        sys.exit(1)
+    split_path = split_json_file(db, table)
 
-    with open(table_path_json, 'r') as jsonfile:
-        try:
-            data = json.load(jsonfile)
-            if not isinstance(data, list):
-                click.echo("Invalid table format.")
+    if split_path.endswith('.json'):
+        with open(split_path, 'r') as jsonfile:
+            try:
+                data = json.load(jsonfile)
+                if not isinstance(data, list):
+                    click.echo("Invalid table format.")
+                    sys.exit(1)
+
+                sort_fields = [field.strip() for field in fields.split(',')]
+                sorted_data = sort_records(data, sort_fields)
+                click.echo(json.dumps(sorted_data, indent=4))
+            except json.JSONDecodeError:
+                click.echo("Invalid JSON file.")
                 sys.exit(1)
+            except KeyError as e:
+                click.echo(f"Invalid sorting field: {e}")
+                sys.exit(1)
+    else:
+        for file_name in sorted(os.listdir(split_path)):
+            click.echo(f"####{file_name}####")
+            if file_name.endswith('.json'):
+                with open(os.path.join(split_path, file_name), 'r') as jsonfile:
+                    try:
+                        data = json.load(jsonfile)
+                        if not isinstance(data, list):
+                            click.echo("Invalid table format.")
+                            sys.exit(1)
 
-            sort_fields = [field.strip() for field in fields.split(',')]
-            sorted_data = sort_records(data, sort_fields)
-            click.echo(json.dumps(sorted_data, indent=4))
-        except json.JSONDecodeError:
-            click.echo("Invalid JSON file.")
-            sys.exit(1)
-        except KeyError as e:
-            click.echo(f"Invalid sorting field: {e}")
-            sys.exit(1)
-
+                        sort_fields = [field.strip() for field in fields.split(',')]
+                        sorted_data = sort_records(data, sort_fields)
+                        click.echo(json.dumps(sorted_data, indent=4))
+                    except json.JSONDecodeError:
+                        click.echo("Invalid JSON file.")
+                        sys.exit(1)
+                    except KeyError as e:
+                        click.echo(f"Invalid sorting field: {e}")
+                        sys.exit(1)
 
 def group_by_field(data, field):
     """
@@ -319,26 +495,43 @@ def group_by_jval(db, table, field):
         sys.exit(1)
 
     table_path_json = os.path.join(db_path, f"{table}.json")
-    if not os.path.exists(table_path_json):
-        click.echo("Table does not exist.")
-        sys.exit(1)
+    split_path = split_json_file(db, table)
+    
+    if split_path.endswith('.json'):
+        with open(split_path, 'r') as jsonfile:
+            try:
+                data = json.load(jsonfile)
+                if not isinstance(data, list):
+                    click.echo("Invalid table format.")
+                    sys.exit(1)
 
-    with open(table_path_json, 'r') as jsonfile:
-        try:
-            data = json.load(jsonfile)
-            if not isinstance(data, list):
-                click.echo("Invalid table format.")
+                grouped_data = group_by_field(data, field)
+                click.echo(json.dumps(grouped_data, indent=4))
+            except json.JSONDecodeError:
+                click.echo("Invalid JSON file.")
                 sys.exit(1)
+            except KeyError:
+                click.echo(f"Field '{field}' not found in records.")
+                sys.exit(1)
+    else:
+        for file_name in sorted(os.listdir(split_path)):
+            click.echo(f"####{file_name}####")
+            if file_name.endswith('.json'):
+                with open(os.path.join(split_path, file_name), 'r') as jsonfile:
+                    try:
+                        data = json.load(jsonfile)
+                        if not isinstance(data, list):
+                            click.echo("Invalid table format.")
+                            sys.exit(1)
 
-            grouped_data = group_by_field(data, field)
-            click.echo(json.dumps(grouped_data, indent=4))
-        except json.JSONDecodeError:
-            click.echo("Invalid JSON file.")
-            sys.exit(1)
-        except KeyError:
-            click.echo(f"Field '{field}' not found in records.")
-            sys.exit(1)
-
+                        grouped_data = group_by_field(data, field)
+                        click.echo(json.dumps(grouped_data, indent=4))
+                    except json.JSONDecodeError:
+                        click.echo("Invalid JSON file.")
+                        sys.exit(1)
+                    except KeyError:
+                        click.echo(f"Field '{field}' not found in records.")
+                        sys.exit(1)
 
 def natural_join(data1, data2):
     """
@@ -373,26 +566,48 @@ def join_jval(db, table1, table2, join_field):
     table1_path = os.path.join(db_path, f"{table1}.json")
     table2_path = os.path.join(db_path, f"{table2}.json")
 
-    if not os.path.exists(table1_path) or not os.path.exists(table2_path):
-        click.echo("One or both tables do not exist.")
-        sys.exit(1)
+    table_path_json = os.path.join(db_path, f"{table1}.json")
+    split_path1 = split_json_file(db, table1)
+    split_path2 = split_json_file(db, table2)
 
-    with open(table1_path, 'r') as jsonfile1, open(table2_path, 'r') as jsonfile2:
-        try:
-            data1 = json.load(jsonfile1)
-            data2 = json.load(jsonfile2)
-            if not (isinstance(data1, list) and isinstance(data2, list)):
-                click.echo("Invalid table formats.")
+    if split_path1.endswith('.json') and split_path2.endswith('.json'):
+        with open(split_path1, 'r') as jsonfile1, open(split_path2, 'r') as jsonfile2:
+            try:
+                data1 = json.load(jsonfile1)
+                data2 = json.load(jsonfile2)
+                if not (isinstance(data1, list) and isinstance(data2, list)):
+                    click.echo("Invalid table formats.")
+                    sys.exit(1)
+
+                joined_data = natural_join(data1, data2)
+                click.echo(json.dumps(joined_data, indent=4))
+            except json.JSONDecodeError:
+                click.echo("Invalid JSON in one or both files.")
                 sys.exit(1)
+            except KeyError as e:
+                click.echo(f"Error in joining tables: {e}")
+                sys.exit(1)
+    else:
+        for file_name in sorted(os.listdir(split_path1)):
+            for file_name2 in sorted(os.listdir(split_path2)):
+                if file_name.endswith('.json'):
+                    with open(os.path.join(split_path1, file_name), 'r') as jsonfile1, open(os.path.join(split_path2, file_name2), 'r') as jsonfile2:
+                        try:
+                            data1 = json.load(jsonfile1)
+                            data2 = json.load(jsonfile2)
+                            if not (isinstance(data1, list) and isinstance(data2, list)):
+                                click.echo("Invalid table formats.")
+                                sys.exit(1)
 
-            joined_data = natural_join(data1, data2)
-            click.echo(json.dumps(joined_data, indent=4))
-        except json.JSONDecodeError:
-            click.echo("Invalid JSON in one or both files.")
-            sys.exit(1)
-        except KeyError as e:
-            click.echo(f"Error in joining tables: {e}")
-            sys.exit(1)
+                            joined_data = natural_join(data1, data2)
+                            click.echo(json.dumps(joined_data, indent=4))
+                        except json.JSONDecodeError:
+                            click.echo("Invalid JSON in one or both files.")
+                            sys.exit(1)
+                        except KeyError as e:
+                            click.echo(f"Error in joining tables: {e}")
+                            sys.exit(1)
+
 
 def filter_data(data, criteria):
     """ Filter data based on criteria which can include > and < operations. """
@@ -404,7 +619,8 @@ def filter_data(data, criteria):
                 operation = condition['operation']
                 value = condition['value']
                 # convert str to float if possible
-                if value.isdigit():
+
+                if isinstance(value, str) and value.isdigit():
                     value = float(value)
                     comp_val = float(record.get(field, 0))
                     comp_eq_val = float(record.get(field, 0))
@@ -457,32 +673,59 @@ def select_jval(db, table, where, groupby, orderby):
         click.echo("Database does not exist.")
         sys.exit(1)
 
-    table_path = os.path.join(db_path, f"{table}.json")
-    if not os.path.exists(table_path):
-        click.echo("Table does not exist.")
-        sys.exit(1)
+    table_path_json = os.path.join(db_path, f"{table}.json")
+    split_path = split_json_file(db, table)
 
-    with open(table_path, 'r') as file:
-        try:
-            data = json.load(file)
-            if not isinstance(data, list):
-                click.echo("Invalid table format.")
+    if split_path.endswith('.json'):
+        with open(split_path, 'r') as file:
+            try:
+                data = json.load(file)
+                if not isinstance(data, list):
+                    click.echo("Invalid table format.")
+                    sys.exit(1)
+
+                # Apply where
+                if where:
+                    criteria = json.loads(where)
+                    data = filter_data(data, criteria)
+
+                # Apply groupby
+                if groupby:
+                    data = group_by(data, groupby)
+                    # If grouped, ordering within groups isn't handled in this implementation
+                elif orderby:  # Apply orderby only if not grouped
+                    order_fields = [field.strip() for field in orderby.split(',')]
+                    data = order_by(data, order_fields)
+
+                click.echo(json.dumps(data, indent=4))
+            except json.JSONDecodeError:
+                click.echo("Invalid JSON format.")
                 sys.exit(1)
+    else:
+         for file_name in sorted(os.listdir(split_path)):
+            click.echo(f"####{file_name}####")
+            if file_name.endswith('.json'):
+                with open(os.path.join(split_path, file_name), 'r') as file:
+                    try:
+                        data = json.load(file)
+                        if not isinstance(data, list):
+                            click.echo("Invalid table format.")
+                            sys.exit(1)
 
-            # Apply where
-            if where:
-                criteria = json.loads(where)
-                data = filter_data(data, criteria)
+                        # Apply where
+                        if where:
+                            criteria = json.loads(where)
+                            data = filter_data(data, criteria)
 
-            # Apply groupby
-            if groupby:
-                data = group_by(data, groupby)
-                # If grouped, ordering within groups isn't handled in this implementation
-            elif orderby:  # Apply orderby only if not grouped
-                order_fields = [field.strip() for field in orderby.split(',')]
-                data = order_by(data, order_fields)
+                        # Apply groupby
+                        if groupby:
+                            data = group_by(data, groupby)
+                            # If grouped, ordering within groups isn't handled in this implementation
+                        elif orderby:  # Apply orderby only if not grouped
+                            order_fields = [field.strip() for field in orderby.split(',')]
+                            data = order_by(data, order_fields)
 
-            click.echo(json.dumps(data, indent=4))
-        except json.JSONDecodeError:
-            click.echo("Invalid JSON format.")
-            sys.exit(1)
+                        click.echo(json.dumps(data, indent=4))
+                    except json.JSONDecodeError:
+                        click.echo("Invalid JSON format.")
+                        sys.exit(1)

@@ -54,7 +54,13 @@ def cre_tb(db, table, format):
         click.echo("Database does not exist.")
         sys.exit(1)
 
-    table_path = os.path.join(db_path, f"{table}.{format}")
+    if format == 'json':
+        table_dir = os.path.join(db_path, table)
+        table_path = os.path.join(table_dir, f"{table}.{format}")
+        os.makedirs(table_dir)
+    else:
+        table_path = os.path.join(db_path, f"{table}.{format}")
+
     if not os.path.exists(table_path):
         with open(table_path, 'w') as f:
             f.write("")  # create an empty file

@@ -1,6 +1,6 @@
 [
     {
-        "column1": "1",
+        "column1": "value1",
         "column2": "3",
         "id": 1
     },
@@ -16,17 +16,12 @@
     },
     {
         "column1": "value1",
-        "column2": "value2",
-        "id": 4
+        "column2": "3",
+        "id": 7
     },
     {
         "column1": "value1",
-        "column2": "value2",
-        "id": 5
-    },
-    {
-        "column1": "value1",
-        "column2": "value2",
-        "id": 6
+        "column2": "3",
+        "id": 8
     }
 ]
