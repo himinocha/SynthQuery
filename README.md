@@ -13,7 +13,23 @@ navigate to the project direcotory
 
 ## SQL Database (csv)
 ### ins_cval (insert values to csv file)
-    while inserting values are supported, it would be best to append rows with known columns, since appending a new column may cause significant slow down since it requires the system to to copy files in chunks to a new file. When a new value with new columns are appended, other files will be updated with NA.
+    python main.py ins-cval --db=ev --table=ev_data --values='{"VIN (1-10)": "3ZVZ4JX19K", "County": "Franklin", "City": "Pasco", "State": "WA", "Postal Code": "99301", "Model Year": "2019", "Make": "FORD", "Model": "MUSTANG MACH-E", "Electric Vehicle Type": "Battery Electric Vehicle (BEV)", "Clean Alternative Fuel Vehicle (CAFV) Eligibility": "Eligible", "Electric Range": 270, "Base MSRP": 0, "Legislative District": 8, "DOL Vehicle ID": "456789012", "Vehicle Location": "POINT (-119.1005655 46.2395793)", "Electric Utility": "PACIFICORP||FRANKLIN PUD", "2020 Census Tract": "53021030200"}'
+### del_rows
+    python3 main.py del-rows --db=ev --table=ev_data --conditions='{"Make": "TESLA"}'
+### update-rows
+    python3 main.py update-rows --db=ev --table=ev_data --conditions='{"Make": {"originalvalue":"TOYOTA","newvalue":"TESLA"}}'
+### project-col
+    python3 main.py project-col --db=ev --table=ev_data --columns='Make','Model'
+### filter-tb
+    python3 main.py filter-tb --db=ev --table=ev_data --conditions '{"Make": {"operator": "eq", "value": "TESLA"}}'
+### order_tb
+    python3 main.py order-tb --db=ev --table=ev_data --column="2020 Census Tract" --ascending=F
+### groupby
+    python3 main.py groupby --db ev --table ev_data --column Make --agg count
+### join-tb
+    python3 main.py join-tb --db=ev --tbl1=ev_data --tbl2=emission_standards --column='Model Year','Model Year'
+### query
+    python3 main.py query --db=ev --table=ev_data --where='{"Make": {"operator": "eq", "value": "TESLA"}}' --groupby='Model' --agg=count --order_col='Base MSRP' --ascending=T --project_col='2020 Census Tract'
 
 ## NoSQL Database (json)
 ### ins_jval
