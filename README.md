@@ -5,11 +5,18 @@ Merging SQL and Command Prompts in Data Retrieval
 ```
 .
 ├── database
+│   ├──  ev
+│   │    └── ev_data
+│   │          ├── chunk_1.csv
+│   │          ├── chunk_2.csv
+│   │          └── ...
 │   └── test-db
 │          ├── t
-│          │   └── t.json
+│          │   ├── split_json_part_1.json
+│          │   ├── split_json_part_2.json
+│          │   └── ...
 │          └── t2
-│              └── t2.json
+│              └── ...
 ├── Project
 │      ├── static
 │      │   ├── images
